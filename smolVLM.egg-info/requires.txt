@@ -1,0 +1,7 @@
+torch
+transformers
+pillow
+numpy
+opencv-python
+qdrant-client
+pyyaml

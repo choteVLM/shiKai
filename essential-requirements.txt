@@ -1,0 +1,13 @@
+torch
+torchvision
+torchaudio
+transformers
+numpy
+pillow
+opencv-python-headless
+pandas
+qdrant-client
+pydantic
+streamlit 
+num2words
+accelerate>=0.26.0

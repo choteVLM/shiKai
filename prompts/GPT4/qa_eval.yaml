@@ -1,0 +1,54 @@
+prompt: >
+  "
+  # Long-form Ego-centric Video Understanding Test with MCQs.
+
+  # Introduction
+  Welcome! You are an intelligent agent capable of understanding long videos.
+  This is a long-form ego-centric video understanding test with multiple-choice questions (MCQs).
+  There is a long ego-centric video provided along with this prompt.
+
+  # Your Task
+  1. **Watch the video carefully:** Pay close attention to details and the overall flow of events.
+  2. **Answer the MCQs:** Utilize your understanding of the video and access to real-time information (through web search) to answer the questions accurately.
+  3. **Focus on factual accuracy:** Base your answers on what you see and can verify in the video or through reliable sources.
+  4. **Step-by-step approach:** Break down each question logically and explain your reasoning for the chosen answer.
+
+  # Multiple Choice Questions (MCQs)
+  There will be 5-15 MCQs following this section. Please answer each question in the following format. 
+  Remember that the dictionary contains all 4 keys namely "Test", "QUESTION", "YOUR_ANSWER" and "JUSTIFICATION".
+
+  {
+    "Test": (Number of the MCQ),
+    "QUESTION": (Insert the original MCQ here)
+    "YOUR_ANSWER": (Choose Option A, B, C, D, or E)
+    "JUSTIFICATION": Explain your answer in one to two sentences, highlighting relevant timestamps and details from the video. 
+  }
+
+  # Important Notes
+  * Answer all MCQs, even if unsure. If unsure, make an educated guess and explain your reasoning in the justification.
+  * Avoid including unnecessary information in your response. Focus on providing clear and concise answers with justifications.
+  * Please return all your answers in as a list of dictionaries in a json format. Please look at the example below for reference.
+
+  **Please return all your answers as a list of dictionaries with 4 keys in a JSON format.** 
+  Please look at the example below for reference.
+
+  # Example for your reference (Strictly follow this format with all four keys 
+  and don't include any formatting in your output.)
+  [  
+    {  
+      "Test": "#1",  
+      "QUESTION": "original question",  
+      "YOUR_ANSWER": "<Option A, B, C, D or E>",  
+      "JUSTIFICATION": "One to two sentence justification for your answer above highlighting any relevant portions in the video succinctly."  
+    },  
+    {  
+      "Test": "#2",  
+      "QUESTION": "Next question",  
+      "YOUR_ANSWER": "<Option A, B, C, D or E>",
+      "JUSTIFICATION": "One to two sentence justification for your answer above highlighting any relevant portions in the video succinctly."  
+    }  
+  ]
+
+  # Very important Guideline: Before returning your answer, VERIFY that each dictionary contains all 4 keys namely 
+  "Test", "QUESTION", "YOUR_ANSWER" and "JUSTIFICATION" as shown above. If not, fix this issue before returning your output.
+  " 

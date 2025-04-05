@@ -1,78 +1,22 @@
 import torch
 from transformers import AutoProcessor, AutoModelForImageTextToText
 from PIL import Image
-import cv2
-import numpy as np
-from typing import List
-import logging
-from qdrant_client import QdrantClient
-from qdrant_client.models import VectorParams, Distance, PointStruct
 import os
 import json
-import re
-import traceback
+import logging
+import argparse
+import numpy as np
+import time
+
+# Import from utility modules using relative imports
+from utils.video_utils import VideoFrameExtractor, get_video_metadata
+from utils.format_text_utils import load_yaml_prompt, create_world_state_history, clean_model_response
+from utils.db_utils import create_vector_db, store_embeddings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 torch.cuda.empty_cache()
 torch.cuda.reset_peak_memory_stats()
-
-class VideoFrameExtractor:
-    def __init__(self, max_frames: int = 50):
-        self.max_frames = max_frames
-        
-    def resize_and_center_crop(self, image: Image.Image, target_size: int) -> Image.Image:
-        # Get current dimensions
-        width, height = image.size
-        
-        # Calculate new dimensions keeping aspect ratio
-        if width < height:
-            new_width = target_size
-            new_height = int(height * (target_size / width))
-        else:
-            new_height = target_size
-            new_width = int(width * (target_size / height))
-            
-        # Resize
-        image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-        
-        # Center crop
-        left = (new_width - target_size) // 2
-        top = (new_height - target_size) // 2
-        right = left + target_size
-        bottom = top + target_size
-        
-        return image.crop((left, top, right, bottom))
-        
-    def extract_frames(self, video_path: str) -> List[Image.Image]:
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            raise ValueError(f"Could not open video: {video_path}")
-            
-        # Get video properties
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
-        
-        # Calculate frame indices to extract (1fps)
-        frame_indices = list(range(0, total_frames, fps))
-        
-        # If we have more frames than max_frames, sample evenly
-        if len(frame_indices) > self.max_frames:
-            indices = np.linspace(0, len(frame_indices) - 1, self.max_frames, dtype=int)
-            frame_indices = [frame_indices[i] for i in indices]
-        
-        frames = []
-        for frame_idx in frame_indices:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-            ret, frame = cap.read()
-            if ret:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                pil_image = Image.fromarray(frame)
-                pil_image = self.resize_and_center_crop(pil_image, 384)
-                frames.append(pil_image)
-        
-        cap.release()
-        return frames
 
 def load_model(checkpoint_path: str, base_model_id: str = "HuggingFaceTB/SmolVLM-Instruct", device: str = "cuda"):
     # Load processor from original model
@@ -98,230 +42,442 @@ def load_model(checkpoint_path: str, base_model_id: str = "HuggingFaceTB/SmolVLM
     
     return model, processor
 
-def generate_response(model, processor, vector_db_client, video_path: str, question: str, max_frames: int = 50, batch_size: int = 4):
+def generate_response(model, processor, vector_db_client, video_path: str, question: str, max_frames: int = 50, batch_size: int = 7, show_stats: bool = False, frames_per_context: int = 1):
     # Extract frames
     frame_extractor = VideoFrameExtractor(max_frames)
     frames = frame_extractor.extract_frames(video_path)
     logger.info(f"Extracted {len(frames)} frames from video")
-    # file = open("FrameDescription.txt", "w")
 
+    # Get video metadata for timing calculations
+    video_metadata = get_video_metadata(video_path)
+    total_duration = video_metadata["duration_seconds"]
+    actual_time_per_frame = total_duration / len(frames) if frames else 0
+    
     assistant_model,_ = load_model(checkpoint_path=None, base_model_id="HuggingFaceTB/SmolVLM2-256M-Video-Instruct", device="cuda")
     
     # Process frames in batches
     all_responses = []
-    for i in range(0, len(frames), batch_size):
-        batch_frames = frames[i:i+batch_size]
-        logger.info(f"Processing batch {i//batch_size + 1}/{(len(frames) + batch_size - 1)//batch_size} with {len(batch_frames)} frames")
+    all_embeddings = []
+    
+    # Stats tracking
+    total_input_tokens = 0
+    total_output_tokens = 0
+    batch_processing_stats = []
+    
+    # Process all frames in context-sized groups
+    for i in range(0, len(frames), batch_size * frames_per_context):
+        # Calculate batch details
+        batch_start = i
+        batch_end = min(i + batch_size * frames_per_context, len(frames))
+        current_batch = i//(batch_size * frames_per_context) + 1
+        total_batches = (len(frames) + batch_size * frames_per_context - 1)//(batch_size * frames_per_context)
+        
+        # Group frames into contexts
+        frame_groups = []
+        for j in range(batch_start, batch_end, frames_per_context):
+            frame_group = frames[j:min(j+frames_per_context, len(frames))]
+            # Only use complete groups if more than one frame per context
+            if frames_per_context == 1 or len(frame_group) == frames_per_context:
+                frame_groups.append(frame_group)
+        
+        if not frame_groups:
+            continue
+            
+        # Count groups in this batch
+        num_groups = len(frame_groups)
+        if frames_per_context > 1:
+            logger.info(f"Processing batch {current_batch}/{total_batches} with {num_groups} frame groups ({frames_per_context} frames each)")
+        else:
+            logger.info(f"Processing batch {current_batch}/{total_batches} with {num_groups} individual frames")
         
         # Create batch of messages
         batch_messages = []
-        for img in batch_frames:
-            messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image"},
-                        {"type": "text", "text": "Describe a detail description of the image. Summarize the image in a few sentences."} 
-                    ]
-                }
-            ]
+        for frame_group in frame_groups:
+            # Calculate the actual duration and time interval for this specific group
+            actual_frames_in_group = len(frame_group)
+            group_duration = actual_frames_in_group * actual_time_per_frame
+            group_interval = actual_time_per_frame
+            
+            # Dynamically customize prompt for this specific group
+            customized_prompt = question
+            # Replace key parameters with actual values for this group
+            customized_prompt = customized_prompt.replace("sequence of {{FRAMES_COUNT}} images", f"sequence of {actual_frames_in_group} images")
+            customized_prompt = customized_prompt.replace("spanning {{TOTAL_DURATION_FORMATTED}}", f"spanning {group_duration:.2f} seconds")
+            customized_prompt = customized_prompt.replace("with images spaced approximately every {{TIME_INTERVAL_FORMATTED}}", 
+                                                         f"with images spaced approximately every {group_interval:.2f} seconds")
+            customized_prompt = customized_prompt.replace("These video frames are part of a {{TOTAL_DURATION_FORMATTED}} sequence", 
+                                                         f"These video frames are part of a {group_duration:.2f} seconds sequence")
+            
+            # Debug log the first prompt in each batch to verify our replacements
+            if frame_group == frame_groups[0]:
+                logger.info(f"Sample of customized prompt for batch {current_batch}: '{customized_prompt[:100]}...'")
+            
+            # For each context
+            content = [{"type": "text", "text": customized_prompt}]
+            # Add all images in this group to the content
+            for img in reversed(frame_group):  # Reverse to maintain order when inserting at index 0
+                content.insert(0, {"type": "image"})
+            
+            messages = [{"role": "user", "content": content}]
             batch_messages.append(messages)
         
         # Process inputs for the batch
         batch_inputs = processor(
-            text = [processor.apply_chat_template(messages, add_generation_prompt=True) for messages in batch_messages],
-            images= [[img] for img in batch_frames],
+            text=[processor.apply_chat_template(messages, add_generation_prompt=True) for messages in batch_messages],
+            images=[frame_group for frame_group in frame_groups],
             return_tensors="pt",
             padding=True
         ).to(model.device, dtype=torch.bfloat16)
-        # Remove breakpoint for production use
-        # breakpoint()
+        
+        # Track input tokens
+        input_tokens_per_group = batch_inputs.input_ids.size(1)
+        batch_input_tokens = input_tokens_per_group * num_groups
+        total_input_tokens += batch_input_tokens
         
         # Generate responses for the batch
+        start_time = time.time()
         outputs = model.generate(
             **batch_inputs,
-            max_new_tokens=256,
+            max_new_tokens=256 + (128 if frames_per_context > 1 else 0),  # More tokens for multi-frame
             num_beams=5,
             temperature=0.7,
-            #assistant_model=assistant_model,
             do_sample=True,
             use_cache=True
         )
+        end_time = time.time()
+        
+        # Track processing time and output tokens
+        batch_processing_time = end_time - start_time
+        output_tokens_per_group = outputs.size(1) - batch_inputs.input_ids.size(1)
+        batch_output_tokens = output_tokens_per_group * num_groups
+        total_output_tokens += batch_output_tokens
+        
+        # Record stats for this batch
+        batch_processing_stats.append({
+            "batch_num": current_batch,
+            "frame_groups": num_groups,
+            "frames_per_group": frames_per_context,
+            "total_frames": sum(len(group) for group in frame_groups),
+            "input_tokens": batch_input_tokens,
+            "output_tokens": batch_output_tokens,
+            "processing_time": batch_processing_time
+        })
 
         # Decode generated responses
         batch_responses = processor.batch_decode(outputs, skip_special_tokens=True)
         all_responses.extend(batch_responses)
         
-        # Store vectors in the database
-        vector_db_client.upsert(collection_name="frameRAG",
-                                points = [
-                                    PointStruct(id=i + idx, vector=outputs[idx].tolist())
-                                    for idx in range(min(batch_size, len(batch_frames)))
-                                ])
+        # Store vectors in the database if vector_db_client is provided
+        if vector_db_client is not None:
+            try:
+                # Collect embeddings for storage
+                embeddings = [outputs[idx].tolist() for idx in range(min(batch_size, len(frame_groups)))]
+                all_embeddings.extend(embeddings)
+                
+                # Create metadata for embeddings
+                if frames_per_context > 1:
+                    # For multi-frame contexts, store group information
+                    metadata = [
+                        {
+                            "group_index": (batch_start + idx * frames_per_context) // frames_per_context,
+                            "frame_indices": list(range(batch_start + idx * frames_per_context, 
+                                                       min(batch_start + (idx + 1) * frames_per_context, len(frames)))),
+                            "response": batch_responses[idx],
+                            "timestamp_start": (batch_start + idx * frames_per_context) * 
+                                            (get_video_metadata(video_path)["duration_seconds"] / len(frames)),
+                            "timestamp_end": min(batch_start + (idx + 1) * frames_per_context, len(frames)) * 
+                                           (get_video_metadata(video_path)["duration_seconds"] / len(frames))
+                        }
+                        for idx in range(min(batch_size, num_groups))
+                    ]
+                    collection_name = "frameGroupRAG"
+                else:
+                    # For single frames, store individual frame information
+                    metadata = [
+                        {
+                            "frame_index": batch_start + idx * frames_per_context,
+                            "response": batch_responses[idx],
+                            "timestamp": (batch_start + idx * frames_per_context) * 
+                                       (get_video_metadata(video_path)["duration_seconds"] / len(frames))
+                        }
+                        for idx in range(min(batch_size, num_groups))
+                    ]
+                    collection_name = "frameRAG"
+                
+                # Store vectors in the database
+                store_embeddings(
+                    client=vector_db_client,
+                    collection_name=collection_name,
+                    embeddings=embeddings,
+                    ids=[(batch_start + idx * frames_per_context) // frames_per_context if frames_per_context > 1 
+                          else batch_start + idx * frames_per_context 
+                          for idx in range(min(batch_size, num_groups))],
+                    metadata=metadata
+                )
+            except Exception as e:
+                logger.warning(f"Failed to store embeddings in vector database: {e}")
+    
+    # Display token usage statistics if requested
+    if show_stats:
+        total_processing_time = sum(stat["processing_time"] for stat in batch_processing_stats)
+        total_frames_processed = sum(stat.get("total_frames", 0) for stat in batch_processing_stats)
+        avg_tokens_per_frame = total_output_tokens / total_frames_processed if total_frames_processed else 0
         
-        # Optional: Save frame descriptions to file for debugging
-        # for j, response in enumerate(batch_responses):
-        #     frame_idx = i + j + 1
-        #     file.write(f"Frame {frame_idx}:\n {response}\n\n")
+        print("\n" + "="*80)
+        mode_str = "MULTI-FRAME CONTEXT" if frames_per_context > 1 else "SINGLE-FRAME"
+        print(f"📊 TOKEN USAGE STATISTICS ({mode_str})")
+        print("="*80)
+        print(f"Total input tokens: {total_input_tokens}")
+        print(f"Total output tokens: {total_output_tokens}")
+        print(f"Average tokens per frame: {avg_tokens_per_frame:.2f}")
+        if frames_per_context > 1:
+            contexts_count = len(all_responses)
+            avg_tokens_per_context = total_output_tokens / contexts_count if contexts_count else 0
+            print(f"Average tokens per context (of {frames_per_context} frames): {avg_tokens_per_context:.2f}")
+        print(f"Total processing time: {total_processing_time:.2f} seconds")
+        print(f"Frames per second: {total_frames_processed / total_processing_time:.4f}")
+        print("="*80 + "\n")
     
-    # if file is not None:
-    #     file.close()
-    
-    return all_responses
-
-def create_world_state_history(video_path: str, frame_descriptions: List[str], frame_interval_seconds: int = 60):
-    """
-    Creates a world state history from frame descriptions, organizing them into time-stamped intervals.
-    Simplified to match format in world_state_processor.py
-    
-    Args:
-        video_path: Path to the video file
-        frame_descriptions: List of descriptions for each frame
-        frame_interval_seconds: Time interval in seconds for grouping frames (default: 60 seconds)
-        
-    Returns:
-        List of dictionaries containing world state for each interval and a free-form text representation
-    """
-    # Get video duration
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        raise ValueError(f"Could not open video: {video_path}")
-    
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    duration_seconds = total_frames / fps
-    cap.release()
-    
-    # Calculate number of intervals
-    num_intervals = int(np.ceil(duration_seconds / frame_interval_seconds))
-    
-    # Create world state history
-    world_state_history = []
-    
-    for interval_idx in range(num_intervals):
-        start_second = interval_idx * frame_interval_seconds
-        end_second = min((interval_idx + 1) * frame_interval_seconds - 2, duration_seconds)  # -2 to avoid overlap
-        
-        # Convert seconds to HH:MM:SS format
-        def convert_seconds_to_hms(seconds):
-            hours = int(seconds // 3600)
-            minutes = int((seconds % 3600) // 60)
-            secs = int(seconds % 60)
-            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-        
-        start_time = convert_seconds_to_hms(start_second)
-        end_time = convert_seconds_to_hms(end_second)
-        
-        # Find frames that belong to this interval
-        interval_frames = []
-        for i, desc in enumerate(frame_descriptions):
-            # Calculate approximate timestamp for this frame
-            frame_second = i * (duration_seconds / len(frame_descriptions))
-            if start_second <= frame_second < end_second:
-                interval_frames.append(desc)
-        
-        # Create summary for this interval
-        if interval_frames:
-            # Combine descriptions into a comprehensive scene description
-            combined_description = " ".join(interval_frames)
-            
-            # Create dictionary for this interval - simplified to match world_state_processor.py
-            interval_dict = {
-                "time stamp": f"{start_time} - {end_time}",
-                "scene description": combined_description
-            }
-            
-            world_state_history.append(interval_dict)
-    
-    # Create free-form text representation
-    free_form_text = convert_to_free_form_text(world_state_history)
-    
-    return world_state_history, free_form_text
-
-def convert_to_free_form_text(world_state_history: List[dict]) -> str:
-    """
-    Converts the world state history to a free-form text representation.
-    
-    Args:
-        world_state_history: List of dictionaries containing world state for each interval
-        
-    Returns:
-        String containing a free-form text representation of the world state history
-    """
-    free_form_text = ""
-    
-    for interval in world_state_history:
-        free_form_text += f"**Timestamp**: {interval['time stamp']}\n"
-        
-        for key, value in interval.items():
-            if key != 'time stamp':
-                free_form_text += f"**{key}**: {value}\n"
-        
-        free_form_text += "\n"
-    
-    return free_form_text
-
-def create_vector_db():
-    client = QdrantClient(host="localhost", port=6333)
-    if(client.collection_exists(collection_name="frameRAG")):
-        client.delete_collection(collection_name="frameRAG")
-    client.create_collection(collection_name="frameRAG",
-                            vectors_config=VectorParams(size=512,distance=Distance.COSINE))
-    return client
+    # Return responses and stats
+    return all_responses, {"input_tokens": total_input_tokens, "output_tokens": total_output_tokens, "processing_time": sum(stat["processing_time"] for stat in batch_processing_stats)}
 
 def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='SmolVLM Video Inference with custom prompts')
+    parser.add_argument('--prompt_path', type=str, default="/root/shubham/smolVLM/prompts/smolVLM/caption.yaml",
+                       help='Path to the YAML file containing the prompt')
+    parser.add_argument('--video_path', type=str, default="/root/shubham/videos/drawing_room.mp4",
+                       help='Path to the video file to process')
+    parser.add_argument('--checkpoint_path', type=str, default=None,
+                       help='Path to the model checkpoint')
+    parser.add_argument('--base_model', type=str, default="HuggingFaceTB/SmolVLM2-2.2B-Instruct",
+                       help='Base model ID')
+    parser.add_argument('--batch_size', type=int, default=7,
+                       help='Number of frames to process in each batch')
+    parser.add_argument('--max_frames', type=int, default=60,
+                       help='Maximum number of frames to extract from the video')
+    parser.add_argument('--interval_seconds', type=int, default=5,
+                       help='Time interval in seconds for grouping frames in world state history')
+    parser.add_argument('--preserve_json', action='store_true',
+                       help='Preserve JSON structure in world state history')
+    parser.add_argument('--use_vector_db', action='store_true',
+                       help='Store frame embeddings in Qdrant vector database')
+    parser.add_argument('--show_stats', action='store_true',
+                       help='Display processing statistics')
+    parser.add_argument('--frames_per_context', type=int, default=1,
+                       help='Number of frames to include in each context (default: 1, single-frame mode)')
+    args = parser.parse_args()
+    
     # Configuration
-    #checkpoint_path = "/path/to/your/checkpoint"
-    checkpoint_path = None
-    base_model_id = "HuggingFaceTB/SmolVLM2-2.2B-Instruct"  
-    video_path = "C:/Users/jnama/Downloads/sampled_frames.mp4"
-    question = "Describe the video frame by frame."
-    batch_size = 4  # Number of frames to process in each batch
+    checkpoint_path = args.checkpoint_path
+    base_model_id = args.base_model
+    video_path = args.video_path
+    yaml_prompt_path = args.prompt_path
+    batch_size = args.batch_size
+    max_frames = args.max_frames
+    preserve_json = args.preserve_json
+    interval_seconds = args.interval_seconds
+    use_vector_db = args.use_vector_db
+    show_stats = args.show_stats
+    frames_per_context = args.frames_per_context
+    
+    # Statistics tracking
+    start_time_total = time.time()
+    
+    # Check if files exist
+    if not os.path.exists(video_path):
+        logger.error(f"Video file not found: {video_path}")
+        return
+    
+    if not os.path.exists(yaml_prompt_path):
+        logger.error(f"Prompt YAML file not found: {yaml_prompt_path}")
+        return
 
+    # Get video metadata
+    try:
+        video_metadata = get_video_metadata(video_path)
+        total_frames = video_metadata["frame_count"]
+        fps = video_metadata["fps"]
+        total_duration = video_metadata["duration_seconds"]
+        
+        # Display basic statistics if requested
+        if show_stats:
+            minutes, seconds = divmod(total_duration, 60)
+            hours, minutes = divmod(minutes, 60)
+            
+            print("\n" + "="*80)
+            print("🎬 VIDEO PROCESSING STATISTICS")
+            print("="*80)
+            print(f"📹 Video path: {video_path}")
+            print(f"⏱️ Total duration: {int(hours)}h {int(minutes)}m {int(seconds)}s ({total_duration:.2f} seconds)")
+            print(f"🎞️ Total frames in video: {total_frames}")
+            print(f"⚡ Video FPS: {fps}")
+            
+            # Calculate sampling rate
+            actual_frames = min(max_frames, total_frames)
+            sampling_interval = total_duration / actual_frames if actual_frames > 0 else 0
+            
+            print(f"🔍 Sampling configuration:")
+            print(f"   - Requested max frames: {max_frames}")
+            print(f"   - Actual frames to process: {actual_frames}")
+            print(f"   - Frame sampling interval: {sampling_interval:.2f} seconds")
+            
+            if frames_per_context > 1:
+                print(f"   - Using multi-frame processing with {frames_per_context} frames per context")
+                print(f"   - Total contexts: {actual_frames // frames_per_context + (1 if actual_frames % frames_per_context else 0)}")
+            
+            # Calculate world state breakdown
+            num_intervals = int(np.ceil(total_duration / interval_seconds))
+            avg_frames_per_interval = actual_frames / num_intervals if num_intervals > 0 else 0
+            
+            print(f"\n📝 WORLD STATE ORGANIZATION:")
+            print(f"   - Interval length: {interval_seconds} seconds")
+            print(f"   - Number of intervals: {num_intervals}")
+            print(f"   - Avg. frames per interval: {avg_frames_per_interval:.2f}")
+            
+            # Hardware utilization
+            print(f"\n💻 HARDWARE:")
+            print(f"   - Processing device: {'CUDA' if torch.cuda.is_available() else 'CPU'}")
+            if torch.cuda.is_available():
+                print(f"   - GPU: {torch.cuda.get_device_name(0)}")
+            
+            print(f"\n⚙️ CONFIGURATION:")
+            print(f"   - Batch size: {batch_size}")
+            print(f"   - Model: {base_model_id}")
+            print(f"   - Vector DB enabled: {'Yes' if use_vector_db else 'No'}")
+            print("="*80 + "\n")
+            
+    except ValueError as e:
+        logger.error(f"Error getting video metadata: {e}")
+        return
+    
+    # Calculate frame interval based on max_frames
+    frames_count = min(max_frames, total_frames)
+    time_interval = total_duration / frames_count if frames_count > 0 else 0
+    
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
     
     # Load model
     logger.info("Device: "+  device)
     logger.info("Loading model...")
+    model_load_start = time.time()
     model, processor = load_model(checkpoint_path, base_model_id, device)
-    db_client = create_vector_db()
+    model_load_time = time.time() - model_load_start
+    
+    # Create vector db client if requested
+    vector_db_client = None
+    if use_vector_db:
+        try:
+            logger.info("Creating vector database client")
+            vector_db_client = create_vector_db()
+        except Exception as e:
+            logger.error(f"Failed to create vector database: {e}")
+            logger.warning("Continuing without vector database")
+    
+    # Load prompt from YAML
+    logger.info(f"Loading prompt from {yaml_prompt_path}")
+    
+    # Use multi-frame prompt if available
+    if frames_per_context > 1 and not os.path.basename(yaml_prompt_path).startswith('multi_frame'):
+        # Check if there's a multi_frame.yaml in the same directory
+        prompt_dir = os.path.dirname(yaml_prompt_path)
+        multi_frame_path = os.path.join(prompt_dir, "multi_frame.yaml")
+        if os.path.exists(multi_frame_path):
+            logger.info(f"Using multi-frame prompt template from {multi_frame_path}")
+            yaml_prompt_path = multi_frame_path
+    
+    question = load_yaml_prompt(
+        yaml_prompt_path, 
+        frames_count=frames_count,
+        time_interval=time_interval,
+        total_duration=total_duration,
+        frames_per_context=frames_per_context
+    )
+    if not question:
+        logger.error("Failed to load prompt from YAML file.")
+        return
     
     # Generate response
-    logger.info("Generating response...")
-    print(torch.cuda.memory_summary(device=None, abbreviated=False))
-    try:
-        responses = generate_response(model, processor, db_client, video_path, question, 60, batch_size)
-        # Print results
-        print("Question:", question)
-        print(f"Generated {len(responses)} frame descriptions")
-        print("First frame description:", responses[0] if responses else "No responses generated")
+    logger.info("Generating responses...")
+    start_time_processing = time.time()
+    
+    responses, stats = generate_response(
+        model=model,
+        processor=processor,
+        vector_db_client=vector_db_client,
+        video_path=video_path,
+        question=question,
+        max_frames=max_frames,
+        batch_size=batch_size,
+        show_stats=show_stats,
+        frames_per_context=frames_per_context
+    )
+    
+    processing_time = time.time() - start_time_processing
+    
+    if responses:
+        logger.info(f"Successfully generated {len(responses)} descriptions")
+    else:
+        logger.warning("No responses were generated")
+        return
+    
+    # Create world state history
+    logger.info("Creating world state history...")
+    world_state_start = time.time()
+    
+    # First clean up the model responses
+    cleaned_responses = [clean_model_response(resp) for resp in responses]
+    
+    # Debug log - compare a sample before and after cleaning
+    if responses and len(responses) > 0:
+        sample_idx = 0
+        logger.info(f"Sample response before cleaning (first 100 chars): '{responses[sample_idx][:100]}...'")
+        logger.info(f"Sample response after cleaning (first 100 chars): '{cleaned_responses[sample_idx][:100]}...'")
+    
+    world_state_history, free_form_text = create_world_state_history(
+        video_path, 
+        cleaned_responses,  # Use the cleaned responses
+        frame_interval_seconds=interval_seconds,
+        preserve_json_structure=preserve_json
+    )
+    world_state_time = time.time() - world_state_start
+    
+    # Save world state history to file
+    video_name = os.path.basename(video_path).split('.')[0]
+    os.makedirs("results", exist_ok=True)
+    
+    # Save as JSON
+    with open(f"results/{video_name}_world_state_history.json", "w") as f:
+        json.dump(world_state_history, f, indent=2)
+    
+    # Save free-form text representation
+    with open(f"results/{video_name}_world_state_text.txt", "w") as f:
+        f.write(free_form_text)
+    
+    logger.info(f"World state history saved to results/{video_name}_world_state_history.json")
+    logger.info(f"Free-form text representation saved to results/{video_name}_world_state_text.txt")
+    
+    # Final statistics
+    if show_stats:
+        end_time_total = time.time()
+        total_time = end_time_total - start_time_total
         
-        # Create world state history
-        logger.info("Creating world state history...")
-        world_state_history, free_form_text = create_world_state_history(video_path, responses)
+        print("\n" + "="*80)
+        print("🏁 PROCESSING SUMMARY")
+        print("="*80)
+        print(f"Total processing time: {total_time:.2f} seconds")
+        print(f"Model loading time: {model_load_time:.2f} seconds")
+        print(f"Frame processing time: {processing_time:.2f} seconds")
+        print(f"World state creation time: {world_state_time:.2f} seconds")
         
-        # Save world state history to file
-        video_name = os.path.basename(video_path).split('.')[0]
-        os.makedirs("results", exist_ok=True)
-        
-        # Save as JSON
-        with open(f"results/{video_name}_world_state_history.json", "w") as f:
-            json.dump(world_state_history, f, indent=2)
-        
-        # Save free-form text representation
-        with open(f"results/{video_name}_world_state_text.txt", "w") as f:
-            f.write(free_form_text)
-        
-        logger.info(f"World state history saved to results/{video_name}_world_state_history.json")
-        logger.info(f"Free-form text representation saved to results/{video_name}_world_state_text.txt")
-    except Exception as e:
-        print(torch.cuda.memory_summary(device=None, abbreviated=False))
-        print(e)
+        # Performance metrics
+        print(f"\n⚡ PERFORMANCE:")
+        print(f"   - Real-time factor: {total_duration / processing_time:.2f}x")
+        print("="*80)
 
 if __name__ == "__main__":
     with torch.no_grad():
-        # Use main() for normal operation or debug_main() for testing with pre-generated descriptions
+        # Use main() for normal operation
         main()
         
 

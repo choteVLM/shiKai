@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: smolVLM
+Version: 0.1.0
+Summary: SmolVLM video inference package
+Author: SmolVLM Team
+Author-email: 
+Keywords: video,vision,language,model
+Requires-Python: >=3.7
+Requires-Dist: torch
+Requires-Dist: transformers
+Requires-Dist: pillow
+Requires-Dist: numpy
+Requires-Dist: opencv-python
+Requires-Dist: qdrant-client
+Requires-Dist: pyyaml
