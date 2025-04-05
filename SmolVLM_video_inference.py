@@ -7,6 +7,10 @@ from typing import List
 import logging
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct
+import os
+import json
+import re
+import traceback
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -130,7 +134,8 @@ def generate_response(model, processor, vector_db_client, video_path: str, quest
             return_tensors="pt",
             padding=True
         ).to(model.device, dtype=torch.bfloat16)
-        breakpoint()
+        # Remove breakpoint for production use
+        # breakpoint()
         
         # Generate responses for the batch
         outputs = model.generate(
@@ -141,24 +146,120 @@ def generate_response(model, processor, vector_db_client, video_path: str, quest
             #assistant_model=assistant_model,
             do_sample=True,
             use_cache=True
-        ).tolist()
+        )
 
+        # Decode generated responses
+        batch_responses = processor.batch_decode(outputs, skip_special_tokens=True)
+        all_responses.extend(batch_responses)
+        
+        # Store vectors in the database
         vector_db_client.upsert(collection_name="frameRAG",
                                 points = [
-                                    PointStruct(id=i + idx, vector=outputs[idx])
-                                    for idx in range(0,batch_size)
+                                    PointStruct(id=i + idx, vector=outputs[idx].tolist())
+                                    for idx in range(min(batch_size, len(batch_frames)))
                                 ])
-        # batch_responses = processor.batch_decode(outputs, skip_special_tokens=True)
-        # all_responses.extend(batch_responses)
         
-        # # Write responses to file
+        # Optional: Save frame descriptions to file for debugging
         # for j, response in enumerate(batch_responses):
         #     frame_idx = i + j + 1
         #     file.write(f"Frame {frame_idx}:\n {response}\n\n")
     
-    # file.close()
+    # if file is not None:
+    #     file.close()
+    
     return all_responses
 
+def create_world_state_history(video_path: str, frame_descriptions: List[str], frame_interval_seconds: int = 60):
+    """
+    Creates a world state history from frame descriptions, organizing them into time-stamped intervals.
+    Simplified to match format in world_state_processor.py
+    
+    Args:
+        video_path: Path to the video file
+        frame_descriptions: List of descriptions for each frame
+        frame_interval_seconds: Time interval in seconds for grouping frames (default: 60 seconds)
+        
+    Returns:
+        List of dictionaries containing world state for each interval and a free-form text representation
+    """
+    # Get video duration
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Could not open video: {video_path}")
+    
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    duration_seconds = total_frames / fps
+    cap.release()
+    
+    # Calculate number of intervals
+    num_intervals = int(np.ceil(duration_seconds / frame_interval_seconds))
+    
+    # Create world state history
+    world_state_history = []
+    
+    for interval_idx in range(num_intervals):
+        start_second = interval_idx * frame_interval_seconds
+        end_second = min((interval_idx + 1) * frame_interval_seconds - 2, duration_seconds)  # -2 to avoid overlap
+        
+        # Convert seconds to HH:MM:SS format
+        def convert_seconds_to_hms(seconds):
+            hours = int(seconds // 3600)
+            minutes = int((seconds % 3600) // 60)
+            secs = int(seconds % 60)
+            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+        
+        start_time = convert_seconds_to_hms(start_second)
+        end_time = convert_seconds_to_hms(end_second)
+        
+        # Find frames that belong to this interval
+        interval_frames = []
+        for i, desc in enumerate(frame_descriptions):
+            # Calculate approximate timestamp for this frame
+            frame_second = i * (duration_seconds / len(frame_descriptions))
+            if start_second <= frame_second < end_second:
+                interval_frames.append(desc)
+        
+        # Create summary for this interval
+        if interval_frames:
+            # Combine descriptions into a comprehensive scene description
+            combined_description = " ".join(interval_frames)
+            
+            # Create dictionary for this interval - simplified to match world_state_processor.py
+            interval_dict = {
+                "time stamp": f"{start_time} - {end_time}",
+                "scene description": combined_description
+            }
+            
+            world_state_history.append(interval_dict)
+    
+    # Create free-form text representation
+    free_form_text = convert_to_free_form_text(world_state_history)
+    
+    return world_state_history, free_form_text
+
+def convert_to_free_form_text(world_state_history: List[dict]) -> str:
+    """
+    Converts the world state history to a free-form text representation.
+    
+    Args:
+        world_state_history: List of dictionaries containing world state for each interval
+        
+    Returns:
+        String containing a free-form text representation of the world state history
+    """
+    free_form_text = ""
+    
+    for interval in world_state_history:
+        free_form_text += f"**Timestamp**: {interval['time stamp']}\n"
+        
+        for key, value in interval.items():
+            if key != 'time stamp':
+                free_form_text += f"**{key}**: {value}\n"
+        
+        free_form_text += "\n"
+    
+    return free_form_text
 
 def create_vector_db():
     client = QdrantClient(host="localhost", port=6333)
@@ -167,8 +268,6 @@ def create_vector_db():
     client.create_collection(collection_name="frameRAG",
                             vectors_config=VectorParams(size=512,distance=Distance.COSINE))
     return client
-
-
 
 def main():
     # Configuration
@@ -191,17 +290,38 @@ def main():
     # Generate response
     logger.info("Generating response...")
     print(torch.cuda.memory_summary(device=None, abbreviated=False))
-    # try:
-    responses = generate_response(model, processor, db_client, video_path, question, 60, batch_size)
-    # Print results
-    print("Question:", question)
-    print(f"Generated {len(responses)} frame descriptions")
-    print("First frame description:", responses[0] if responses else "No responses generated")
-    # except Exception as e:
-    #     print(torch.cuda.memory_summary(device=None, abbreviated=False))
-    #     print(e)
+    try:
+        responses = generate_response(model, processor, db_client, video_path, question, 60, batch_size)
+        # Print results
+        print("Question:", question)
+        print(f"Generated {len(responses)} frame descriptions")
+        print("First frame description:", responses[0] if responses else "No responses generated")
+        
+        # Create world state history
+        logger.info("Creating world state history...")
+        world_state_history, free_form_text = create_world_state_history(video_path, responses)
+        
+        # Save world state history to file
+        video_name = os.path.basename(video_path).split('.')[0]
+        os.makedirs("results", exist_ok=True)
+        
+        # Save as JSON
+        with open(f"results/{video_name}_world_state_history.json", "w") as f:
+            json.dump(world_state_history, f, indent=2)
+        
+        # Save free-form text representation
+        with open(f"results/{video_name}_world_state_text.txt", "w") as f:
+            f.write(free_form_text)
+        
+        logger.info(f"World state history saved to results/{video_name}_world_state_history.json")
+        logger.info(f"Free-form text representation saved to results/{video_name}_world_state_text.txt")
+    except Exception as e:
+        print(torch.cuda.memory_summary(device=None, abbreviated=False))
+        print(e)
 
 if __name__ == "__main__":
     with torch.no_grad():
+        # Use main() for normal operation or debug_main() for testing with pre-generated descriptions
         main()
+        
 
