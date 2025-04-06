@@ -61,13 +61,16 @@ class VideoFrameExtractor:
         bottom = top + target_size
         
         return image.crop((left, top, right, bottom))
-        
-    def extract_frames(self, video_path: str) -> List[Image.Image]:
+    
+    def extract_frames_at_fps(self, video_path: str, sample_fps: int, crop_frames: bool = True, target_size: int = 384) -> List[Image.Image]:
         """
-        Extract frames from a video file.
+        Extract frames from a video file at a specified sampling rate with optional cropping.
         
         Args:
             video_path: Path to the video file
+            sample_fps: Frames per second to sample (e.g., 1 for one frame per second)
+            crop_frames: Whether to resize and center crop frames (default: True)
+            target_size: Target size for cropping if crop_frames is True (default: 384)
             
         Returns:
             List of PIL Images representing the extracted frames
@@ -81,12 +84,16 @@ class VideoFrameExtractor:
             
         # Get video properties
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        original_fps = cap.get(cv2.CAP_PROP_FPS)
         
-        logger.info(f"Video properties: {total_frames} frames, {fps} FPS")
+        logger.info(f"Video properties: {total_frames} frames, {original_fps} FPS")
         
-        # Calculate frame indices to extract (1fps)
-        frame_indices = list(range(0, total_frames, fps))
+        # Calculate sampling interval based on requested fps
+        if sample_fps <= 0:
+            sample_fps = 1  # Default to 1 fps if invalid value provided
+            
+        frame_interval = int(original_fps / sample_fps)
+        frame_indices = list(range(0, total_frames, frame_interval))
         
         # If we have more frames than max_frames, sample evenly
         if len(frame_indices) > self.max_frames:
@@ -100,13 +107,17 @@ class VideoFrameExtractor:
             if ret:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 pil_image = Image.fromarray(frame)
-                pil_image = self.resize_and_center_crop(pil_image, 384)
+                
+                # Apply center crop if requested
+                if crop_frames:
+                    pil_image = self.resize_and_center_crop(pil_image, target_size)
+                
                 frames.append(pil_image)
             else:
                 logger.warning(f"Failed to read frame at index {frame_idx}")
         
         cap.release()
-        logger.info(f"Extracted {len(frames)} frames from video")
+        logger.info(f"Extracted {len(frames)} frames from video at {sample_fps} FPS")
         return frames
 
 def get_video_metadata(video_path: str) -> dict:

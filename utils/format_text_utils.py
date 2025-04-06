@@ -187,21 +187,15 @@ def clean_model_response(response: str) -> str:
     Returns:
         Cleaned response text with only the model's answer
     """
-    # Check if response contains the pattern "User:MAIN INSTRUCTIONS:" followed by "A:"
-    user_start_index = response.find("User:MAIN INSTRUCTIONS:")
-    if user_start_index >= 0:
-        answer_start_index = response.find("A:", user_start_index)
-        if answer_start_index >= 0:
-            # Extract just the part after "A:"
-            cleaned_response = response[answer_start_index + 2:].strip()
-            return cleaned_response
+    # Check for the Assistant: tag (with or without newline)
+    assistant_tag = "Assistant:"
+    assistant_index = response.find(assistant_tag)
     
-    # Check for just "A:" prefix
-    answer_prefix = "A: "
-    if response.startswith(answer_prefix):
-        return response[len(answer_prefix):].strip()
+    if assistant_index >= 0:
+        # Return everything after the tag
+        return response[assistant_index + len(assistant_tag):].strip()
     
-    # If no patterns found, return original text
+    # If no pattern found, return original text
     return response
 
 def extract_json_response(response: str) -> str:

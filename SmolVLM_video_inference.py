@@ -35,19 +35,36 @@ def load_model(checkpoint_path: str, base_model_id: str = "HuggingFaceTB/SmolVLM
             device_map=device
         ).to("cuda")    
 
-    # Configure processor for video frames
-    processor.image_processor.size = (384, 384)
+    # By default, don't resize or crop since we're using original resolution
     processor.image_processor.do_resize = False
+    processor.image_processor.do_center_crop = False
     processor.image_processor.do_image_splitting = False
     
     return model, processor
 
-def generate_response(model, processor, vector_db_client, video_path: str, question: str, max_frames: int = 50, batch_size: int = 7, show_stats: bool = False, frames_per_context: int = 1):
+def generate_response(model, processor, vector_db_client, video_path: str, question: str, max_frames: int = 50, batch_size: int = 7, show_stats: bool = False, frames_per_context: int = 1, sample_fps: int = 1, resize_frames: bool = True, target_size: int = 384):
     # Extract frames
     frame_extractor = VideoFrameExtractor(max_frames)
-    frames = frame_extractor.extract_frames(video_path)
-    logger.info(f"Extracted {len(frames)} frames from video")
-
+    
+    # Use the method to extract frames at specified fps with optional cropping
+    frames = frame_extractor.extract_frames_at_fps(
+        video_path, 
+        sample_fps,
+        crop_frames=resize_frames,
+        target_size=target_size
+    )
+    
+    if resize_frames:
+        logger.info(f"Extracted {len(frames)} frames at {sample_fps} FPS with {target_size}x{target_size} cropping")
+        # Update processor configuration for resized images
+        processor.image_processor.size = (target_size, target_size)
+        processor.image_processor.do_resize = False  # We've already resized
+        processor.image_processor.do_center_crop = False  # We've already cropped
+        processor.image_processor.do_image_splitting = False
+    else:
+        logger.info(f"Extracted {len(frames)} frames at {sample_fps} FPS with original resolution")
+        processor.image_processor.do_image_splitting = False
+    
     # Get video metadata for timing calculations
     video_metadata = get_video_metadata(video_path)
     total_duration = video_metadata["duration_seconds"]
@@ -120,7 +137,6 @@ def generate_response(model, processor, vector_db_client, video_path: str, quest
             
             messages = [{"role": "user", "content": content}]
             batch_messages.append(messages)
-        
         # Process inputs for the batch
         batch_inputs = processor(
             text=[processor.apply_chat_template(messages, add_generation_prompt=True) for messages in batch_messages],
@@ -152,6 +168,10 @@ def generate_response(model, processor, vector_db_client, video_path: str, quest
         batch_output_tokens = output_tokens_per_group * num_groups
         total_output_tokens += batch_output_tokens
         
+        # Calculate tokens per image in context
+        input_tokens_per_frame = input_tokens_per_group / frames_per_context if frames_per_context > 0 else input_tokens_per_group
+        output_tokens_per_frame = output_tokens_per_group / frames_per_context if frames_per_context > 0 else output_tokens_per_group
+        
         # Record stats for this batch
         batch_processing_stats.append({
             "batch_num": current_batch,
@@ -160,6 +180,11 @@ def generate_response(model, processor, vector_db_client, video_path: str, quest
             "total_frames": sum(len(group) for group in frame_groups),
             "input_tokens": batch_input_tokens,
             "output_tokens": batch_output_tokens,
+            "input_tokens_per_group": input_tokens_per_group,
+            "output_tokens_per_group": output_tokens_per_group,
+            "input_tokens_per_frame": input_tokens_per_frame,
+            "output_tokens_per_frame": output_tokens_per_frame,
+            "prompt_length": len(customized_prompt) if frame_groups else 0,
             "processing_time": batch_processing_time
         })
 
@@ -219,23 +244,39 @@ def generate_response(model, processor, vector_db_client, video_path: str, quest
     
     # Display token usage statistics if requested
     if show_stats:
-        total_processing_time = sum(stat["processing_time"] for stat in batch_processing_stats)
-        total_frames_processed = sum(stat.get("total_frames", 0) for stat in batch_processing_stats)
-        avg_tokens_per_frame = total_output_tokens / total_frames_processed if total_frames_processed else 0
+        # Get example from first batch if available
+        example_batch = batch_processing_stats[0] if batch_processing_stats else None
         
         print("\n" + "="*80)
         mode_str = "MULTI-FRAME CONTEXT" if frames_per_context > 1 else "SINGLE-FRAME"
-        print(f"📊 TOKEN USAGE STATISTICS ({mode_str})")
+        print(f"📊 CONTEXT TOKEN METRICS ({mode_str})")
         print("="*80)
-        print(f"Total input tokens: {total_input_tokens}")
-        print(f"Total output tokens: {total_output_tokens}")
-        print(f"Average tokens per frame: {avg_tokens_per_frame:.2f}")
-        if frames_per_context > 1:
-            contexts_count = len(all_responses)
-            avg_tokens_per_context = total_output_tokens / contexts_count if contexts_count else 0
-            print(f"Average tokens per context (of {frames_per_context} frames): {avg_tokens_per_context:.2f}")
-        print(f"Total processing time: {total_processing_time:.2f} seconds")
-        print(f"Frames per second: {total_frames_processed / total_processing_time:.4f}")
+        
+        # Per-context/frame statistics from a single batch
+        if example_batch:
+            frames_per_group = example_batch["frames_per_group"]
+            
+            # Use the detailed per-group and per-frame metrics we collected
+            input_tokens_per_group = example_batch["input_tokens_per_group"]
+            output_tokens_per_group = example_batch["output_tokens_per_group"]
+            total_tokens_per_group = input_tokens_per_group + output_tokens_per_group
+            
+            input_tokens_per_frame = example_batch["input_tokens_per_frame"]
+            output_tokens_per_frame = example_batch["output_tokens_per_frame"]
+            prompt_length = example_batch["prompt_length"]
+            
+            print(f"📏 CONTEXT TOKENS (from first batch):")
+            print(f"   - Input tokens per context: {input_tokens_per_group}")
+            print(f"   - Output tokens per context: {output_tokens_per_group}")
+            print(f"   - Total tokens per context: {total_tokens_per_group}")
+            print(f"   - Text prompt length: {prompt_length} characters")
+            
+            if frames_per_context > 1:
+                print(f"\n🖼️ PER-FRAME BREAKDOWN:")
+                print(f"   - Frames per context: {frames_per_group}")
+                print(f"   - Input tokens per frame: {input_tokens_per_frame:.2f}")
+                print(f"   - Output tokens per frame: {output_tokens_per_frame:.2f}")
+        
         print("="*80 + "\n")
     
     # Return responses and stats
@@ -254,7 +295,7 @@ def main():
                        help='Base model ID')
     parser.add_argument('--batch_size', type=int, default=7,
                        help='Number of frames to process in each batch')
-    parser.add_argument('--max_frames', type=int, default=60,
+    parser.add_argument('--max_frames', type=int, default=30,
                        help='Maximum number of frames to extract from the video')
     parser.add_argument('--interval_seconds', type=int, default=5,
                        help='Time interval in seconds for grouping frames in world state history')
@@ -264,8 +305,14 @@ def main():
                        help='Store frame embeddings in Qdrant vector database')
     parser.add_argument('--show_stats', action='store_true',
                        help='Display processing statistics')
-    parser.add_argument('--frames_per_context', type=int, default=1,
+    parser.add_argument('--frames_per_context', type=int, default=5,
                        help='Number of frames to include in each context (default: 1, single-frame mode)')
+    parser.add_argument('--sample_fps', type=int, default=1,
+                       help='Frames per second to sample from the video (default: 1)')
+    parser.add_argument('--no_resize_frames', action='store_true',
+                       help='Do not resize or crop frames (use original resolution)')
+    parser.add_argument('--target_size', type=int, default=384,
+                       help='Target size for resizing frames (default: 384)')
     args = parser.parse_args()
     
     # Configuration
@@ -280,6 +327,9 @@ def main():
     use_vector_db = args.use_vector_db
     show_stats = args.show_stats
     frames_per_context = args.frames_per_context
+    sample_fps = args.sample_fps
+    resize_frames = not args.no_resize_frames
+    target_size = args.target_size
     
     # Statistics tracking
     start_time_total = time.time()
@@ -319,8 +369,9 @@ def main():
             
             print(f"🔍 Sampling configuration:")
             print(f"   - Requested max frames: {max_frames}")
+            print(f"   - Requested sampling rate: {sample_fps} FPS")
+            print(f"   - Sampling interval: {1/sample_fps:.2f} seconds")
             print(f"   - Actual frames to process: {actual_frames}")
-            print(f"   - Frame sampling interval: {sampling_interval:.2f} seconds")
             
             if frames_per_context > 1:
                 print(f"   - Using multi-frame processing with {frames_per_context} frames per context")
@@ -345,6 +396,10 @@ def main():
             print(f"   - Batch size: {batch_size}")
             print(f"   - Model: {base_model_id}")
             print(f"   - Vector DB enabled: {'Yes' if use_vector_db else 'No'}")
+            if resize_frames:
+                print(f"   - Frame resizing: {target_size}x{target_size}")
+            else:
+                print(f"   - Using original frame resolution (no cropping)")
             print("="*80 + "\n")
             
     except ValueError as e:
@@ -410,7 +465,10 @@ def main():
         max_frames=max_frames,
         batch_size=batch_size,
         show_stats=show_stats,
-        frames_per_context=frames_per_context
+        frames_per_context=frames_per_context,
+        sample_fps=sample_fps,
+        resize_frames=resize_frames,
+        target_size=target_size
     )
     
     processing_time = time.time() - start_time_processing
