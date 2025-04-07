@@ -7,6 +7,10 @@ import logging
 import argparse
 import numpy as np
 import time
+import cv2
+from typing import List
+from qdrant_client import QdrantClient
+from qdrant_client.models import VectorParams, Distance, PointStruct
 
 # Import from utility modules using relative imports
 from utils.video_utils import VideoFrameExtractor, get_video_metadata
@@ -35,7 +39,8 @@ def load_model(checkpoint_path: str, base_model_id: str = "HuggingFaceTB/SmolVLM
             device_map=device
         ).to("cuda")    
 
-    # By default, don't resize or crop since we're using original resolution
+    # Configure processor for video frames
+    processor.image_processor.size = (384, 384)
     processor.image_processor.do_resize = False
     processor.image_processor.do_center_crop = False
     processor.image_processor.do_image_splitting = False
@@ -137,6 +142,7 @@ def generate_response(model, processor, vector_db_client, video_path: str, quest
             
             messages = [{"role": "user", "content": content}]
             batch_messages.append(messages)
+        
         # Process inputs for the batch
         batch_inputs = processor(
             text=[processor.apply_chat_template(messages, add_generation_prompt=True) for messages in batch_messages],
@@ -537,5 +543,4 @@ if __name__ == "__main__":
     with torch.no_grad():
         # Use main() for normal operation
         main()
-        
 
