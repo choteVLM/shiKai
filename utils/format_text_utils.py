@@ -11,6 +11,7 @@ import logging
 import cv2
 import numpy as np
 from typing import Dict, Optional, Union, List, Tuple, Any
+from functools import partial
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,8 @@ def format_time_for_prompt(seconds: float) -> Dict[str, str]:
         "formatted": formatted_duration
     }
 
-def load_yaml_prompt(
-    yaml_file_path: str, 
+def load_question_prompt(
+    prompt: str,
     frames_count: int = 30, 
     time_interval: float = 2.0, 
     total_duration: float = 60.0,
@@ -74,68 +75,37 @@ def load_yaml_prompt(
         extra_replacements: Additional placeholders to replace
         
     Returns:
-        The prompt string from the YAML file with placeholders replaced
-        
-    Raises:
-        FileNotFoundError: If the YAML file cannot be found
-        yaml.YAMLError: If the YAML file is invalid
-    """
-    try:
-        with open(yaml_file_path, 'r') as file:
-            yaml_content = yaml.safe_load(file)
-            prompt = yaml_content.get('prompt', '')
-            
-            if not prompt:
-                logger.warning(f"No 'prompt' key found in YAML file: {yaml_file_path}")
-                return ""
-            
-            # Format time values
-            interval_time = format_time_for_prompt(time_interval)
-            duration_time = format_time_for_prompt(total_duration)
-            
-            # For multi-frame contexts, the context interval is different than the individual frame interval
-            context_interval = time_interval * frames_per_context
-            context_interval_time = format_time_for_prompt(context_interval)
-            
-            # Replace placeholders with actual values
-            prompt = prompt.replace('{{FRAMES_COUNT}}', str(frames_count))
-            prompt = prompt.replace('{{TIME_INTERVAL}}', interval_time["seconds"])
-            prompt = prompt.replace('{{TIME_INTERVAL_FORMATTED}}', interval_time["formatted"])
-            prompt = prompt.replace('{{TOTAL_DURATION}}', duration_time["seconds"])
-            prompt = prompt.replace('{{TOTAL_DURATION_FORMATTED}}', duration_time["formatted"])
-            prompt = prompt.replace('{{FRAMES_PER_CONTEXT}}', str(frames_per_context))
-            prompt = prompt.replace('{{CONTEXT_INTERVAL}}', context_interval_time["seconds"])
-            prompt = prompt.replace('{{CONTEXT_INTERVAL_FORMATTED}}', context_interval_time["formatted"])
-            
-            # Handle any additional replacements
-            if extra_replacements:
-                for key, value in extra_replacements.items():
-                    prompt = prompt.replace(f'{{{{{key}}}}}', value)
-            
-            return prompt
-    except FileNotFoundError as e:
-        logger.error(f"YAML file not found: {yaml_file_path}")
-        raise
-    except yaml.YAMLError as e:
-        logger.error(f"Error parsing YAML file: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error loading YAML file: {e}")
-        return ""
-
-def load_system_prompt(yaml_file_path: str) -> str:
-    """
-    Load a system prompt from a YAML file.
-    
-    A convenience function for loading simpler prompts without replacements.
-    
-    Args:
-        yaml_file_path: Path to the YAML file
-        
-    Returns:
         The prompt string
+        
     """
-    return load_yaml_prompt(yaml_file_path)
+
+    
+    # Format time values
+    interval_time = format_time_for_prompt(time_interval)
+    duration_time = format_time_for_prompt(total_duration)
+    
+    # For multi-frame contexts, the context interval is different than the individual frame interval
+    context_interval = time_interval * frames_per_context
+    context_interval_time = format_time_for_prompt(context_interval)
+    
+    # Replace placeholders with actual values
+    prompt = partial(prompt.format , FRAMES_COUNT = frames_count,
+                                   TIME_INTERVAL = interval_time["seconds"],
+                                   TIME_INTERVAL_FORMATTED = interval_time["formatted"],
+                                   TOTAL_DURATION = duration_time["seconds"],
+                                   TOTAL_DURATION_FORMATTED = duration_time["formatted"],
+                                   FRAMES_PER_CONTEXT = frames_per_context,
+                                   CONTEXT_INTERVAL = context_interval_time["seconds"],
+                                   CONTEXT_INTERVAL_FORMATTED = context_interval_time["formatted"]
+                                   )
+    # Handle any additional replacements
+    if extra_replacements:
+        for key, value in extra_replacements.items():
+            prompt = prompt(**{key:value})
+    else:
+        prompt = prompt()
+    
+    return prompt
 
 #
 # World state text formatting functions
@@ -263,8 +233,7 @@ def create_world_state_history(
     # Create world state history
     world_state_history = []
     
-    # Clean up response texts
-    cleaned_descriptions = [clean_model_response(desc) for desc in frame_descriptions]
+    # Clean up response text
     
     for interval_idx in range(num_intervals):
         start_second = interval_idx * frame_interval_seconds
@@ -275,9 +244,9 @@ def create_world_state_history(
         
         # Find frames that belong to this interval
         interval_frames = []
-        for i, desc in enumerate(cleaned_descriptions):
+        for i, desc in enumerate(frame_descriptions):
             # Calculate approximate timestamp for this frame
-            frame_second = i * (duration_seconds / len(cleaned_descriptions))
+            frame_second = i * (duration_seconds / len(frame_descriptions))
             if start_second <= frame_second < end_second:
                 interval_frames.append(desc)
         

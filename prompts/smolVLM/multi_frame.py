@@ -1,12 +1,12 @@
-prompt: >
+multi_frame_prompt = """
   MAIN INSTRUCTIONS:
   
-  Your task is to analyze a sequence of {{FRAMES_PER_CONTEXT}} consecutive video frames 
-  extracted from a {{TOTAL_DURATION_FORMATTED}} long video.
+  Your task is to analyze a sequence of {FRAMES_PER_CONTEXT} consecutive video frames 
+  extracted from a {TOTAL_DURATION_FORMATTED} long video.
 
-  I will provide you with a group of {{FRAMES_PER_CONTEXT}} sequential images spanning 
-  approximately {{TIME_INTERVAL_FORMATTED}} of video time. These frames are part of a longer
-  video with {{FRAMES_COUNT}} total frames sampled at regular intervals.
+  I will provide you with a group of {FRAMES_PER_CONTEXT} sequential images spanning 
+  approximately {TIME_INTERVAL_FORMATTED} of video time. These frames are part of a longer
+  video with {FRAMES_COUNT} total frames sampled at regular intervals.
     
   Examine these consecutive frames carefully and provide analysis showing how the scene 
   changes across this short time sequence. Focus on:
@@ -32,15 +32,16 @@ prompt: >
   
   RESPONSE FORMAT:
   ```json
-  {
+  {{
     "Sequence Timeframe": "Brief statement about where this sequence likely fits within the overall video",
     "Motion Analysis": "Detailed description of movement and action across frames",
     "Key Changes": "List of specific changes observed from first to last frame",
     "Stable Elements": "Description of what remains consistent across all frames",
     "Micro-Narrative": "A short 2-3 sentence story describing what happens in this sequence"
-  }
+  }}
   ```
   
-  Remember that these {{FRAMES_PER_CONTEXT}} frames represent only {{TIME_INTERVAL_FORMATTED}} from a
-  {{TOTAL_DURATION_FORMATTED}} video, so focus your analysis on what can be observed within
+  Remember that these {FRAMES_PER_CONTEXT} frames represent only {TIME_INTERVAL_FORMATTED} from a
+  {TOTAL_DURATION_FORMATTED} video, so focus your analysis on what can be observed within
   just this specific sequence. 
+  """
