@@ -11,3 +11,4 @@ pydantic
 streamlit 
 num2words
 accelerate>=0.26.0
+google-genai
