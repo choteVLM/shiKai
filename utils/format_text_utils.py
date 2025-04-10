@@ -237,7 +237,7 @@ def create_world_state_history(
     
     for interval_idx in range(num_intervals):
         start_second = interval_idx * frame_interval_seconds
-        end_second = min((interval_idx + 1) * frame_interval_seconds - 2, duration_seconds)  # -2 to avoid overlap
+        end_second = min((interval_idx + 1) * frame_interval_seconds, duration_seconds)  # -2 to avoid overlap
         
         start_time = convert_seconds_to_hms(start_second)
         end_time = convert_seconds_to_hms(end_second)

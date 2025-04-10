@@ -1,0 +1,15 @@
+# Configuration
+base_model_id: HuggingFaceTB/SmolVLM2-2.2B-Instruct
+batch_size: 8
+max_frames: 600 
+preserve_json: True
+interval: 5
+use_vector_db: False
+show_stats: False
+frames_per_context: 5
+sample_fps: 1
+resize_frames: True
+target_size: 384
+model_name: smolVLM
+output_dir: ./results
+checkpoint_path:

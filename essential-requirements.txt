@@ -17,3 +17,4 @@ google-genai
 torchaudio
 ffmpeg-python
 pyannote-audio
+pyyaml

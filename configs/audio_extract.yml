@@ -1,0 +1,12 @@
+#configration
+asr_model: whisper
+diarization_model: pyannote/speaker-diarization-3.1
+base_model_id: openai/whisper-large-v3
+language: en
+interval: 5
+sampling_rate: 16000
+chunk_interval: 1200
+overlap_sec: 5
+chunk_dir: /tmp/
+chunk_file_prefix: chunk_
+output_dir: ./results

@@ -1,0 +1,11 @@
+# Configuration
+video_path: ./results/video.mp4
+video_chunk_length: 300
+vision_cfg: ./configs/vision_extract.yml
+audio_cfg: ./configs/audio_extract.yml
+use_frame_desc: False
+frame_desc_file: /tmp/frame_desc.json
+use_audio_trans: False
+audio_trans_file: /tmp/audio_desc.json
+provider: Gemini
+model:
