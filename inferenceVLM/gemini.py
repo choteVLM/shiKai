@@ -4,7 +4,7 @@ from inferenceVLM.base_model import base_model
 import os,time
 
 class gemini(base_model):
-    def __init__(self, base_model: str="gemini-2.0-flash", apikey_var: str = "GEMINI_API_KEY"):
+    def __init__(self, base_model: str="gemini-2.0-flash", apikey_var: str = "GEMINI_VISION_API_KEY"):
         self.client = genai.Client(api_key=os.getenv(apikey_var))
         self.base_model_str = base_model
 

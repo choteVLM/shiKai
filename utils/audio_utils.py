@@ -21,7 +21,7 @@ def load_audio(audio_path:str):
     return audio_data.squeeze()
 
 
-def extract_audio_from_video(video_path, sampling_rate=16000,  chunk_interval:int = 1200, overlap:int = 5, chunk_dir:str = "/tmp/", file_prefix:str = "chunk_"):
+def extract_audio_from_video(video_path, sampling_rate=16000,  chunk_interval:int = 1200, overlap:int = 5, chunk_dir:str = "/tmp/", chunk_file_prefix:str = "chunk_"):
     """Extract audio from video file using ffmpeg"""
     print(f"Extracting audio from {video_path}...")
     
@@ -50,7 +50,7 @@ def extract_audio_from_video(video_path, sampling_rate=16000,  chunk_interval:in
     while boundary < sample_len - 1:
         start_time = max(0, boundary - overlap * sampling_rate)
         end_time = min(sample_len - 1, boundary + chunk_interval * sampling_rate)
-        out_path = os.path.join(chunk_dir, f"{file_prefix}_{index}.wav")
+        out_path = os.path.join(chunk_dir, f"{chunk_file_prefix}_{index}.wav")
 
         torchaudio.save(out_path, audio_data[:,start_time:end_time], sampling_rate)
         chunk_files.append(out_path)
@@ -83,7 +83,7 @@ def format_transcription_to_json(transcription_chunks, video_duration, interval:
     while current_time < video_duration:
     #     # Find any transcriptions that overlap with this time window
         current_end = current_time + interval
-        transcribe = None
+        transcribe = ""
         overwrite_index = index
         while index < len(transcription_chunks):
             chunk_start = transcription_chunks[index]['start']
@@ -98,7 +98,7 @@ def format_transcription_to_json(transcription_chunks, video_duration, interval:
             index = index + 1
         
         index = overwrite_index
-        if transcribe:
+        if transcribe != "":
             scene_description = {
                 "Sequence Timeframe": f"{interval} seconds from a {int(video_duration // 60)} minutes and {int(video_duration % 60)} seconds video",
                 "Audio Transcription": transcribe

@@ -52,7 +52,7 @@ class VideoFrameExtractor:
             new_width = int(width * (target_size / height))
             
         # Resize
-        image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        image = image.resize((new_width, new_height), Image.Resampling.BILINEAR)
         
         # Center crop
         left = (new_width - target_size) // 2
