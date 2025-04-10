@@ -8,4 +8,4 @@ frame_desc_file: /tmp/frame_desc.json
 use_audio_trans: False
 audio_trans_file: /tmp/audio_desc.json
 provider: Gemini
-model:
+model: gemini-2.0-flash
