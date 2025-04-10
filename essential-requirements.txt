@@ -14,3 +14,6 @@ accelerate>=0.26.0
 openai
 google-generativeai
 google-genai
+torchaudio
+ffmpeg-python
+pyannote-audio
