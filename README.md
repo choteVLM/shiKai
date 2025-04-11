@@ -1,24 +1,32 @@
-# SmolVLM Video Inference
+# Video Inference
 
-A Python package for extracting frames from videos and running SmolVLM visual language model inference on them. This tool generates detailed descriptions of video frames and creates a summarized world state history.
+An python CLI tool for video analysis that combines visual language model inference with audio transcription. This tool enables users to query video content and receive relevant timestamps, generating comprehensive descriptions and temporal summaries of both visual and audio elements.
 
 ## Features
 
+### Frame Extraction Features
 - Extract frames from videos at configurable intervals
-- Process frames with SmolVLM2 visual language models (256M, 2.2B, etc.)
-- Generate detailed frame descriptions with customizable prompts
-- Create structured world state history with temporal organization
-- Optional vector database integration for frame embeddings (Qdrant)
+- Process frames with visual language models. You can use any VLM by implementing a simple interface
+- Generate detailed frame descriptions
 - Multi-frame context processing for sequential frame analysis
 - Detailed statistics tracking for token usage and performance
+
+### Audio Extraction Features
+- Extract audio from the video at a configurable sampling rate
+- Process the audio to generate a transcription. You can use any Diarization-ASR pipeline by implementing a simple interface
+- Generate detailed transciption with different speaker annotation.
+
+### Query Engine
+- Answers user's query by using the Frame description and Audio transcription.
+- Plug and play any large language model to answer your query.
 
 ## Installation
 
 ### Option 1: Install from source (Development Mode)
 
 ```bash
-git clone https://github.com/yourname/smolVLM.git
-cd smolVLM
+git clone https://github.com/choteVLM/shiKai.git
+cd shiKai
 pip install -e .
 ```
 
@@ -28,82 +36,121 @@ If you want to skip installing the package's dependencies and only install core 
 
 ```bash
 pip install -e . --no-deps
-pip install -r smolVLM/essential-requirements.txt
+pip install -r shiKai/essential-requirements.txt
 ```
 
 ## Usage
 
 ```bash
-python smolVLM/SmolVLM_video_inference.py --video_path /path/to/your/video.mp4
+python shiKai/mainIndex.py --video_cfg_file ./configs/query_engine.yml
 ```
 
-### Basic Options
+### Config Properties for Query Engine(query_engine.yml)
 
-- `--video_path`: Path to the video file to process
-- `--prompt_path`: Path to YAML file containing the prompt (default: caption.yaml)
-- `--base_model`: Base model ID to use (default: HuggingFaceTB/SmolVLM2-2.2B-Instruct)
-- `--batch_size`: Number of frames to process in each batch (default: 7)
-- `--max_frames`: Maximum number of frames to extract (default: 60)
-- `--interval_seconds`: Time interval for grouping frames in history (default: 5)
-- `--use_vector_db`: Enable vector database for frame embeddings
-- `--show_stats`: Display detailed statistics about processing
+- video_path: path of the video to be analyzed
+- video_chunk_length: video chunks length in seconds whose transcription and frame description can fit in query engine context
+- vision_cfg: path of the config file containing configuration for frame description VLM
+- audio_cfg: path of the config file containing configuration for audio transcription pipeline
+- use_frame_desc: boolean(True/False) representing whether you want to directly use the frame description file without invoking VLM  
+- frame_desc_file: path to the frame description file
+- use_audio_trans: boolean(True/False) representing whether you want to directly use the audio transcription file without invoking ASR pipeline  
+- audio_trans_file: path to the audio transcription file
+- provider: LLM provider used for answering your query (like Gemini/OpenAI)
+- model: LLM model to be used for answering your query (like gemini-2.0-flash)
 
-### Multi-Frame Context Processing
+```
+#### Configuration Example ####
 
-The package now supports processing multiple frames in a single context, allowing the model to analyze frame sequences rather than individual frames:
-
-```bash
-python smolVLM/SmolVLM_video_inference.py --video_path /path/to/video.mp4 --multi_frame_context --frames_per_context 3
+    video_path: ./results/video.mp4
+    video_chunk_length: 300
+    vision_cfg: ./configs/vision_extract.yml
+    audio_cfg: ./configs/audio_extract.yml
+    use_frame_desc: False
+    frame_desc_file: /tmp/frame_desc.json
+    use_audio_trans: False
+    audio_trans_file: /tmp/audio_desc.json
+    provider: Gemini
+    model: gemini-2.0-flash
 ```
 
-#### Multi-Frame Options
+### Config Properties for Frame Description(vision_cfg)
 
-- `--multi_frame_context`: Process multiple frames in a single context
-- `--frames_per_context`: Number of frames to include in each context (default: 3)
+- base_model_id: hugging face model to be used for extracting frame description (like HuggingFaceTB/SmolVLM2-2.2B-Instruct)
+- batch_size: batch size to be used for batch inferencing
+- max_frames: maximum number of frames to be sampled
+- preserve_json: boolean(True/False) used for storing frame description in JSON format
+- interval: interval in sec to process together for generating multi frame description
+- show_stats: boolean(True/False) used for showing processing stats
+- frames_per_context: Nnumbers of frames to be processed together for generating multi frame description
+- sample_fps: frames per second to sample 
+- resize_frames: boolean(True/False) decides whether you want to resize frames before passing them to VLM
+- target_size: frame size after resizing frames
+- model_name: model to be used for generating frame description (like smolVLM, gemini)
+- output_dir: directory to be used for storing frame descriptions that are generated
 
-This mode is ideal for analyzing motion, temporal relationships, and sequential changes in videos. The model receives multiple frames at once and can provide analysis of their relationships, changes, and continuity.
+```
+#### Configuration Example ####
 
-## Prompt Templates
-
-Two main prompt templates are available:
-
-1. **caption.yaml**: Default template for single-frame processing
-2. **multi_frame.yaml**: Template optimized for multi-frame context processing
-
-You can create custom prompts by following these templates. Available placeholder variables:
-
-- `{{FRAMES_COUNT}}`: Total number of frames being processed
-- `{{TIME_INTERVAL}}` and `{{TIME_INTERVAL_FORMATTED}}`: Time between frames
-- `{{TOTAL_DURATION}}` and `{{TOTAL_DURATION_FORMATTED}}`: Total video duration
-- `{{FRAMES_PER_CONTEXT}}`: Number of frames in each context (multi-frame mode)
-- `{{CONTEXT_INTERVAL}}` and `{{CONTEXT_INTERVAL_FORMATTED}}`: Time span covered by each context
-
-## Examples
-
-### Basic Single-Frame Processing
-
-```bash
-python smolVLM/SmolVLM_video_inference.py --video_path /path/to/video.mp4 --max_frames 60 --show_stats
+    base_model_id: HuggingFaceTB/SmolVLM2-2.2B-Instruct
+    batch_size: 8
+    max_frames: 600 
+    preserve_json: True
+    interval: 5
+    use_vector_db: False
+    show_stats: False
+    frames_per_context: 5
+    sample_fps: 1
+    resize_frames: True
+    target_size: 384
+    model_name: smolVLM
+    output_dir: ./results
+    checkpoint_path:
 ```
 
-### Multi-Frame Sequence Analysis
+### Config Properties for Audio Transcription(audio_cfg)
 
-```bash
-python smolVLM/SmolVLM_video_inference.py --video_path /path/to/video.mp4 --multi_frame_context --frames_per_context 3 --show_stats
+- asr_model: pipeline to be used for generating transcription (like whisper)
+- diarization_model: model to be used for diarization (like pyannote/speaker-diarization-3.1)
+- base_model_id: model hugging face id to be used for transcription generation (like openai/whisper-large-v3)
+- language: language for transcription (like en for english)
+- interval:  interval in sec to process together for generating audio trancription
+- sampling_rate: sampling rate for extracting audio from the given video
+- chunk_interval: chunk interval in sec to be used for chunking large videos for batch processing
+- overlap_sec: interval in sec to be used for assigning to a give time frame 
+- chunk_dir: temporary directory to be used for storing chunks of the video
+- chunk_file_prefix: prefix for the filename to be used for storing a chunk
+- output_dir:  directory to be used for storing audio trancription that are generated
+
+```
+#### Configuration Example ####
+    asr_model: whisper
+    diarization_model: pyannote/speaker-diarization-3.1
+    base_model_id: openai/whisper-large-v3
+    language: en
+    interval: 5
+    sampling_rate: 16000
+    chunk_interval: 1200
+    overlap_sec: 5
+    chunk_dir: /tmp/
+    chunk_file_prefix: chunk_
+    output_dir: ./results
 ```
 
-### Processing with Vector Database for Embeddings
 
-```bash
-python smolVLM/SmolVLM_video_inference.py --video_path /path/to/video.mp4 --use_vector_db
-```
-
-## Output
-
-The script generates two files in the `results` directory:
-
-1. `<video_name>_world_state_history.json`: JSON representation of video world state
-2. `<video_name>_world_state_text.txt`: Human-readable text representation
+## Models currently supported
+- Frame Description VLM
+    - smolVLM
+    - gemini
+- Audio Transcription ASR
+    - Pipeline
+        - whisper
+    - Diarization model
+        - pyannote/speaker-diarization-*
+    - ASR model
+        - penai/whisper-*
+- Query Engine LLM
+    - OpenAI (like gpt-3.5-turbo, gpt-4 etc.)
+    - Gemini (like gemini-2.0-flash etc.)
 
 ## Requirements
 
@@ -112,11 +159,11 @@ The script generates two files in the `results` directory:
 - Transformers
 - OpenCV
 - YAML
-- Other dependencies listed in setup.py
+- Other dependencies listed in essential-requirements.txt
 
 ## Advanced Configuration
 
-For detailed statistics on model usage, specify the `--show_stats` flag. This provides:
+For detailed statistics on VLM model usage, specify the `--show_stats` flag. This provides:
 
 - Token usage statistics
 - Processing time analysis

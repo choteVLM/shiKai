@@ -1,5 +1,5 @@
 """
-Video processing utilities for SmolVLM.
+Video processing utilities.
 
 This module contains utilities for extracting and processing video frames.
 """

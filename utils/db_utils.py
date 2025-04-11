@@ -1,5 +1,5 @@
 """
-Database utilities for SmolVLM.
+Database utilities.
 
 This module contains utilities for working with vector databases.
 """
