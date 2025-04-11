@@ -339,7 +339,7 @@ def create_video_description(checkpoint_path:str, base_model_id:str, video_path:
 
 def main():
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='SmolVLM Video Inference with custom prompts')
+    parser = argparse.ArgumentParser(description='Video Inference with custom prompts')
     parser.add_argument('--video_path', type=str, default="/root/shubham/videos/drawing_room.mp4",
                        help='Path to the video file to process')
     parser.add_argument('--checkpoint_path', type=str, default=None,

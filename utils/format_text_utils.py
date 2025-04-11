@@ -1,5 +1,5 @@
 """
-Text formatting utilities for SmolVLM.
+Text formatting utilities.
 
 This module contains utilities for formatting text, including prompt loading,
 time formatting, and world state text creation.
