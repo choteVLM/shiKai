@@ -1,4 +1,11 @@
-# Video Inference
+<p align="center">
+  <h1 align="center"><b><i><u>Shikai</u></i></b>: Flexible search engine for videos</h1>
+</p>
+<p align="center">
+  <img src="assets/title.png" alt="ShiKai Logo">
+</p>
+
+
 
 An python CLI tool for video analysis that combines visual language model inference with audio transcription. This tool enables users to query video content and receive relevant timestamps, generating comprehensive descriptions and temporal summaries of both visual and audio elements.
 
