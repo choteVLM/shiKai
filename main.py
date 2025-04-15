@@ -10,8 +10,8 @@ from flask import Flask, request, jsonify, send_from_directory, Response
 
 from chatLLM.gemini import gemini
 from chatLLM.openAI import openAI
-from ASR_video_inference import create_asr_description
-from VLM_video_inference import create_video_description
+from ASR_main import create_asr_description
+from VLM_main import create_video_description
 from utils.index_utils import load_data, group_frame_and_transcription, interactive_chat, process_query_for_web
 
 # Global variables to store processed data

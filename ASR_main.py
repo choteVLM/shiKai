@@ -4,7 +4,7 @@ import json
 import argparse
 
 from utils.audio_utils import extract_audio_from_video, format_transcription_to_json
-from modelASR.whisper import whisper
+from models_ASR.whisper import whisper
 
 def create_asr_description(video_path:str, asr_model:str, diarization_model:str, base_model_id:str, language: str, interval: int, output_file: str,
                            sampling_rate:int, chunk_interval:int, overlap_sec: int, chunk_dir: str, chunk_file_prefix: str):

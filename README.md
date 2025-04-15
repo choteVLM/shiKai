@@ -1,56 +1,122 @@
 <p align="center">
-  <h1 align="center"><b><i><u>Shikai</u></i></b>: Flexible search engine for videos</h1>
+  <h1 align="center"><b><i><u>Shikai</u></i></b>: A flexible search engine for videos</h1>
 </p>
 <p align="center">
   <img src="assets/title.png" alt="ShiKai Logo">
 </p>
 
 
+ShiKai is the most flexible video search engine out there! letting you pick and mix advanced vision and audio models for pinpoint search on your video database
+Build your ideal video search stack by customizing every component from speech recognition and VLMs to retrieval workflows in an easy and scalable manner 🚀✨
 
-An python CLI tool for video analysis that combines visual language model inference with audio transcription. This tool enables users to query video content and receive relevant timestamps, generating comprehensive descriptions and temporal summaries of both visual and audio elements.
 
-## Features
+## How ShiKai Works
 
-### Frame Extraction Features
-- Extract frames from videos at configurable intervals
-- Process frames with visual language models. You can use any VLM by implementing a simple interface
-- Generate detailed frame descriptions
-- Multi-frame context processing for sequential frame analysis
-- Detailed statistics tracking for token usage and performance
+ShiKai processes videos through three core pipelines that work together to enable natural language querying of video content:
 
-### Audio Extraction Features
-- Extract audio from the video at a configurable sampling rate
-- Process the audio to generate a transcription. You can use any Diarization-ASR pipeline by implementing a simple interface
-- Generate detailed transciption with different speaker annotation.
+### 🎬 Video Language Model (VLM) Pipeline
 
-### Query Engine
-- Answers user's query by using the Frame description and Audio transcription.
-- Plug and play any large language model to answer your query.
+The VLM pipeline extracts visual information from your videos:
+1. **Frame Extraction**: Videos are sampled at configurable intervals (e.g., 1 frame per second)
+2. **Temporal Context**: Multiple frames are analyzed together to capture activities over time
+3. **Dense captioninig**: Detailed text descriptions can generated for each frame or sequence depending on the model
 
-## Installation
+You can choose between different VLMs like SmolVLM and Gemini Vision, or implement your own VLM interface.
 
-### Option 1: Install from source (Development Mode)
+### 🔊 Audio Speech Recognition (ASR) Pipeline
 
-```bash
-git clone https://github.com/choteVLM/shiKai.git
-cd shiKai
-pip install -e .
+The ASR pipeline extracts spoken content from your videos:
+1. **Audio Extraction**: Audio is separated from the video file
+2. **Speaker Diarization**: Different speakers are identified and labeled
+3. **Speech Recognition**: Audio is transcribed to text with timestamps
+4. **Transcription Generation**: The final output includes speaker-identified text aligned with video timestamps
+
+The default implementation uses Whisper for transcription and Pyannote for speaker diarization.
+
+### 🔍 Query Engine
+
+The Query Engine is the orchestration layer that determines how to analyze and understand video content with the help of the available models and tools:
+
+1. **Model Selection and coordination**: Decides which models or tools are most appropriate for answering a specific query. Examples:
+   - Using object detectors for "How many cars are visible in this traffic scene?"
+   - Prioritizing ASR for "What did the presenter say about climate change?"
+   - Combining face recognition with VLM for "When does this character appear again?"
+2. **Temporal Alignment**: Aligns information across modalities with precise timestamps
+3. **Knowledge Retrieval**: Can perform RAG (Retrieval Augmented Generation) over video embeddings to narrow down the search space on larger video databases 
+4. **Response Generation**: Integrates the responses via a final chatLLM for the user
+
+> **Note**: The current implementation uses a basic [Socratic model](https://socraticmodels.github.io) approach, where the video is parsed sequentially step by step and dense captions are generted. Future versions will support more sophisticated reasoning patterns, video RAG, parallel processing, and integration with specialized models like YOlO, SAM. 
+##TODO: change this based on how much aryan is able to do 
+
+
+## Getting started
+
+### Repository Structure
+
+```
+/
+├── main.py                      # Entry point for the application
+├── VLM_main.py                  # Video Language Model (VLM) pipeline
+├── ASR_main.py                  # Automatic Speech Recognition pipeline
+├── configs/                     # Configuration files
+│   ├── query_engine.yml         # Config for the main query engine
+│   ├── vision_extract.yml       # Config for video models
+│   └── audio_extract.yml        # Config for audio extraction  
+├── chatLLM/                     # Chat models for query answering
+│   ├── base_model.py            # Base interface for chat LLMs
+│   ├── openAI.py                # OpenAI implementation
+│   └── gemini.py                # Gemini Chat implementation
+├── models_VLM/                # Video Language Models
+│   ├── base_model.py            # Base interface for VLMs
+│   ├── smolVLM.py               # SmolVLM implementation
+│   └── gemini.py                # Gemini Vision implementation
+├── models_ASR/                    # Audio Speech Recognition models
+│   ├── base_model.py            # Base interface for ASR
+│   └── whisper.py               # Whisper implementation
+├── utils/                       # Utility functions
+│   ├── video_utils.py           # Video processing utilities
+│   ├── audio_utils.py           # Audio processing utilities
+│   ├── db_utils.py              # Database utilities
+│   ├── format_text_utils.py     # Text formatting utilities
+│   └── index_utils.py           # Indexing utilities
+├── viewer/                      # Web UI
+│   └── video_chat.html          # HTML template for video chat interface
+├── prompts/                     # Prompt templates
+└── assets/                      # Images and other assets
 ```
 
-### Option 2: Install Core Dependencies Only
+### Installation
 
-If you want to skip installing the package's dependencies and only install core requirements:
 
 ```bash
-conda create -n shikai python=3.10 pip, conda activate shikai
-# pip install -e . --no-deps
-pip install -r shiKai/essential-requirements.txt
+conda create -n shikai pip 
+conda activate shikai
+pip install -r shiKai/requirements.txt
 ```
+
+### Setup API keys
+
+ShiKai requires various API keys to function properly. You should set these as environment variables before running the application to avoid being prompted each time:
+
+```bash
+# For Hugging Face models (required for speaker diarization)
+export HUGGING_FACE_TOKEN=your_hugging_face_token
+
+# For Gemini API (if using Gemini for vision processing)
+export GEMINI_VISION_API_KEY=your_gemini_vision_api_key
+
+# For Gemini API (if using Gemini for chat)
+export GEMINI_CHAT_API_KEY=your_gemini_chat_api_key
+
+# For OpenAI API (if using OpenAI models)
+export OPENAI_CHAT_API_KEY=your_openai_api_key
+```
+For persistent configuration, add these to your shell profile (e.g., `~/.bashrc`, `~/.zshrc`, etc.).
 
 ## Usage
 
 ```bash
-python shiKai/mainIndex.py --video_cfg_file ./configs/query_engine.yml
+python shiKai/main.py --video_cfg_file ./configs/query_engine.yml
 ```
 
 ### Web Interface
@@ -58,7 +124,7 @@ python shiKai/mainIndex.py --video_cfg_file ./configs/query_engine.yml
 You can now use shiKai with a browser-based interface by adding the `--web` flag:
 
 ```bash
-python shiKai/mainIndex.py --video_cfg_file ./configs/query_engine.yml --web
+python shiKai/main.py --video_cfg_file ./configs/query_engine.yml --web
 ```
 
 This will start a web server at http://localhost:5000 where you can:
@@ -66,11 +132,7 @@ This will start a web server at http://localhost:5000 where you can:
 - Chat with the AI assistant about the video content
 - Navigate through video clips
 
-You can also run the web interface with direct command line arguments:
-
-```bash
-python shiKai/mainIndex.py --video_path /path/to/video.mp4 --provider OpenAI --model gpt-4 --web
-```
+## Configuration
 
 ### Config Properties for Query Engine(query_engine.yml)
 
@@ -188,7 +250,7 @@ python shiKai/mainIndex.py --video_path /path/to/video.mp4 --provider OpenAI --m
 - Transformers
 - OpenCV
 - YAML
-- Other dependencies listed in essential-requirements.txt
+- Other dependencies listed in requirements.txt
 
 ## Advanced Configuration
 

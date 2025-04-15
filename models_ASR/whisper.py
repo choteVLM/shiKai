@@ -7,7 +7,7 @@ import torch
 
 
 
-from modelASR.base_model import base_model 
+from models_ASR.base_model import base_model 
 from utils.audio_utils import load_audio
 
 

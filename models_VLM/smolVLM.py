@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoProcessor, AutoModelForImageTextToText
-from inferenceVLM.base_model import base_model
+from models_VLM.base_model import base_model
 import time
 
 class smolVLM(base_model):

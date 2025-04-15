@@ -16,15 +16,15 @@ from utils.format_text_utils import load_question_prompt, create_world_state_his
 from prompts.caption import caption_prompt
 from prompts.multi_frame import multi_frame_prompt
 
-from inferenceVLM.smolVLM import smolVLM
-from inferenceVLM.gemini import gemini
+from models_VLM.smolVLM import smolVLM
+from models_VLM.gemini import gemini
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-torch.cuda.empty_cache()
-torch.cuda.reset_peak_memory_stats()
+# torch.cuda.empty_cache()
+# torch.cuda.reset_peak_memory_stats()
 
-def generate_response(inferenceVLM, video_path: str, question: str, max_frames: int = 50, batch_size: int = 7, show_stats: bool = False, frames_per_context: int = 1, 
+def generate_response(models_VLM, video_path: str, question: str, max_frames: int = 50, batch_size: int = 7, show_stats: bool = False, frames_per_context: int = 1, 
                       sample_fps: int = 1, resize_frames: bool = True, target_size: int = 384):
     # Extract frames
     frame_extractor = VideoFrameExtractor(max_frames)
@@ -45,7 +45,7 @@ def generate_response(inferenceVLM, video_path: str, question: str, max_frames: 
     
     ## Remove 
     # assistant_model,_ = load_model(checkpoint_path=None, base_model_id="HuggingFaceTB/SmolVLM2-256M-Video-Instruct", device="cuda")
-    all_responses, batch_processing_stats, total_input_tokens, total_output_tokens = inferenceVLM.batch_inference(frames = frames, question = question, batch_size = batch_size, frames_per_context = frames_per_context, logger = logger)
+    all_responses, batch_processing_stats, total_input_tokens, total_output_tokens = models_VLM.batch_inference(frames = frames, question = question, batch_size = batch_size, frames_per_context = frames_per_context, logger = logger)
     # # Process frames in batches
     # all_embeddings = []
         
@@ -224,12 +224,12 @@ def create_video_description(checkpoint_path:str, base_model_id:str, video_path:
     model_load_start = time.time()
 
     if model_name == "smolVLM":
-        inferenceVLM = smolVLM(checkpoint_path=checkpoint_path,
+        models_VLM = smolVLM(checkpoint_path=checkpoint_path,
                                 model_name=base_model_id,
                                 device=device,
                                 target_size=target_size) 
     elif model_name == "gemini":
-        inferenceVLM = gemini(base_model=base_model_id)
+        models_VLM = gemini(base_model=base_model_id)
     
     model_load_time = time.time() - model_load_start
     
@@ -264,7 +264,7 @@ def create_video_description(checkpoint_path:str, base_model_id:str, video_path:
     start_time_processing = time.time()
     
     responses, stats = generate_response(
-        inferenceVLM=inferenceVLM,
+        models_VLM=models_VLM,
         video_path=video_path,
         question=question,
         max_frames=max_frames,

@@ -1,6 +1,6 @@
 from google import genai
 from google.genai import types
-from inferenceVLM.base_model import base_model
+from models_VLM.base_model import base_model
 import os,time
 
 class gemini(base_model):
