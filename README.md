@@ -42,7 +42,8 @@ pip install -e .
 If you want to skip installing the package's dependencies and only install core requirements:
 
 ```bash
-pip install -e . --no-deps
+conda create -n shikai python=3.10 pip, conda activate shikai
+# pip install -e . --no-deps
 pip install -r shiKai/essential-requirements.txt
 ```
 
@@ -50,6 +51,25 @@ pip install -r shiKai/essential-requirements.txt
 
 ```bash
 python shiKai/mainIndex.py --video_cfg_file ./configs/query_engine.yml
+```
+
+### Web Interface
+
+You can now use shiKai with a browser-based interface by adding the `--web` flag:
+
+```bash
+python shiKai/mainIndex.py --video_cfg_file ./configs/query_engine.yml --web
+```
+
+This will start a web server at http://localhost:5000 where you can:
+- View the video
+- Chat with the AI assistant about the video content
+- Navigate through video clips
+
+You can also run the web interface with direct command line arguments:
+
+```bash
+python shiKai/mainIndex.py --video_path /path/to/video.mp4 --provider OpenAI --model gpt-4 --web
 ```
 
 ### Config Properties for Query Engine(query_engine.yml)
@@ -64,6 +84,7 @@ python shiKai/mainIndex.py --video_cfg_file ./configs/query_engine.yml
 - audio_trans_file: path to the audio transcription file
 - provider: LLM provider used for answering your query (like Gemini/OpenAI)
 - model: LLM model to be used for answering your query (like gemini-2.0-flash)
+- web_mode: boolean(True/False) to run the application with a web interface instead of CLI
 
 ```
 #### Configuration Example ####
@@ -78,6 +99,7 @@ python shiKai/mainIndex.py --video_cfg_file ./configs/query_engine.yml
     audio_trans_file: /tmp/audio_desc.json
     provider: Gemini
     model: gemini-2.0-flash
+    web_mode: True
 ```
 
 ### Config Properties for Frame Description(vision_cfg)

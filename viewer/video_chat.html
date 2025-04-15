@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Video Detective</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Source Sans Pro', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f2e9; /* More subtle vintage paper color */
+      color: #2b2522;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect x="0" y="0" width="100" height="100" fill="none" stroke="%23e8e3d7" stroke-width="1" stroke-dasharray="5,5" /></svg>');
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 2rem;
+      position: relative;
+    }
+    #timestampList {
+      list-style-type: none;
+      padding: 0;
+      margin: 1rem 0;
+    }
+    #timestampList li {
+      margin: 10px 0;
+    }
+    #timestampList button {
+      cursor: pointer;
+      padding: 0.8rem 1.5rem;
+      font-size: 1.1rem;
+      background-color: #635147; /* Subtle brown */
+      color: #f5f2e9;
+      border: none;
+      border-radius: 2px;
+      width: 100%;
+      text-align: left;
+      font-family: 'Source Sans Pro', sans-serif;
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+      transition: all 0.2s ease;
+    }
+    #timestampList button:hover {
+      background-color: #4d3e36; /* Darker brown */
+    }
+    h1 {
+      color: #2b2522;
+      text-align: center;
+      margin-bottom: 2rem;
+      font-family: 'Playfair Display', serif;
+      font-size: 2.5rem;
+      letter-spacing: 1px;
+      position: relative;
+      display: inline-block;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    h1::after {
+      content: "";
+      position: absolute;
+      bottom: -10px;
+      left: 10%;
+      right: 10%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #635147, transparent);
+    }
+    .video-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto 2rem;
+      border: 10px solid #2d2621;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    video {
+      width: 100%;
+      display: block;
+      background-color: #000;
+    }
+    /* Film strip overlay on video - keeping this but making more subtle */
+    .video-container::before,
+    .video-container::after {
+      content: "";
+      position: absolute;
+      height: 20px;
+      left: 0;
+      right: 0;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="20" viewBox="0 0 800 20"><rect x="0" y="0" width="800" height="20" fill="%23222" /><rect x="10" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="40" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="70" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="100" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="130" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="160" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="190" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="220" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="250" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="280" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="310" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="340" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="370" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="400" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="430" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="460" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="490" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="520" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="550" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="580" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="610" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="640" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="670" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="700" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="730" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="760" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /></svg>');
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    .video-container::before {
+      top: 0;
+    }
+    .video-container::after {
+      bottom: 0;
+    }
+    /* Chat interface styles */
+    .chat-container {
+      background-color: #f9f7f4;
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      margin-top: 2rem;
+      overflow: hidden;
+      position: relative;
+      transition: box-shadow 0.3s ease;
+    }
+    .chat-container:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .chat-container::before,
+    .chat-container::after {
+      display: none; /* Remove the top/bottom bars */
+    }
+    .chat-header {
+      background-color: #4d3e36; /* Subtle brown */
+      color: #f9f7f4;
+      padding: 1.2rem;
+      font-weight: 600;
+      text-align: center;
+      font-family: 'Playfair Display', serif;
+      letter-spacing: 1px;
+      border-bottom: none;
+      margin-top: 0;
+      position: relative;
+    }
+    .chat-header::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 15%;
+      right: 15%;
+      height: 1px;
+      background: rgba(255,255,255,0.2);
+    }
+    .chat-messages {
+      padding: 1.5rem;
+      max-height: 320px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      background-image: none;
+      background-color: #f9f7f4;
+    }
+    .chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-messages::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.03);
+      border-radius: 3px;
+    }
+    .chat-messages::-webkit-scrollbar-thumb {
+      background-color: rgba(0,0,0,0.12);
+      border-radius: 3px;
+    }
+    .message {
+      margin-bottom: 1.2rem;
+      padding: 1rem 1.2rem;
+      border-radius: 12px;
+      max-width: 80%;
+      font-family: 'Source Sans Pro', sans-serif;
+      position: relative;
+      border: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+      line-height: 1.5;
+      transition: transform 0.2s ease;
+    }
+    .message:hover {
+      transform: translateY(-1px);
+    }
+    .user-message {
+      background-color: #f0e9e2; /* Light beige */
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .bot-message {
+      background-color: #e6e2dc; /* Light gray-beige */
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+      padding-left: 1.5rem;
+      position: relative;
+      margin-left: 46px; /* Add space for the avatar */
+    }
+    
+    .bot-message::before {
+      content: "🕵️";
+      position: absolute;
+      left: -46px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.2rem;
+      width: 36px;
+      height: 36px;
+      background-color: #dfd8cc;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease;
+      border: 1px solid rgba(255,255,255,0.5);
+    }
+    
+    .bot-message:hover::before {
+      transform: translateY(-50%) scale(1.1);
+    }
+    .chat-input {
+      display: flex;
+      border-top: none;
+      padding: 0.8rem 1.2rem 1.2rem;
+      background-color: #f9f7f4;
+      position: relative;
+      z-index: 2;
+    }
+    .chat-input::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 10%;
+      right: 10%;
+      height: 1px;
+      background: rgba(0,0,0,0.06);
+    }
+    #messageInput {
+      flex: 1;
+      padding: 0.9rem 1rem 0.9rem 3rem;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 30px;
+      margin-right: 0.8rem;
+      background-color: #fff;
+      font-family: 'Source Sans Pro', sans-serif;
+      color: #2b2522;
+      position: relative;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="10" cy="10" r="7" fill="none" stroke="%234d3e36" stroke-width="1.5"/><line x1="15" y1="15" x2="20" y2="20" stroke="%234d3e36" stroke-width="1.5" stroke-linecap="round"/></svg>');
+      background-repeat: no-repeat;
+      background-position: 16px center;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    #messageInput:focus {
+      outline: none;
+      border-color: rgba(99, 81, 71, 0.4);
+      box-shadow: 0 0 0 3px rgba(99, 81, 71, 0.1);
+    }
+    #messageInput::placeholder {
+      color: #aa9f94;
+      font-style: italic;
+    }
+    #sendButton {
+      padding: 0 1.8rem;
+      background-color: #635147;
+      color: white;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      font-family: 'Source Sans Pro', sans-serif;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #sendButton:hover {
+      background-color: #4d3e36;
+      transform: translateY(-2px);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    }
+    #sendButton:active {
+      transform: translateY(0);
+    }
+    .loading {
+      text-align: center;
+      padding: 1rem;
+      color: #635147;
+      font-style: italic;
+      opacity: 0.8;
+    }
+    /* Subtle loading animation */
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+    .loading::before {
+      content: "⟳";
+      display: inline-block;
+      margin-right: 10px;
+      animation: pulse 1.5s ease infinite;
+    }
+    /* Timestamp styling */
+    .timestamps-section {
+      margin-top: 2rem;
+      display: none;
+    }
+    .timestamps-section.has-timestamps {
+      display: block;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .timestamps-header {
+      font-family: 'Playfair Display', serif;
+      color: #4d3e36;
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      position: relative;
+    }
+    .timestamps-header::after {
+      content: "";
+      position: absolute;
+      bottom: -8px;
+      left: 15%;
+      right: 15%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(99, 81, 71, 0.3), transparent);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1> 🎞️ 🕵️ Video Detective</h1>
+
+    <div class="video-container">
+      <video
+        id="videoPlayer"
+        controls
+      >
+        <source id="videoSource" src="" type="video/mp4">
+        Your browser does not support the HTML5 video tag.
+      </video>
+    </div>
+
+    <div class="chat-container">
+      <div class="chat-header">
+        Find anything in your video
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="message bot-message">
+          What clues are you looking for in this footage, detective?
+        </div>
+      </div>
+      <div class="chat-input">
+        <input type="text" id="messageInput" placeholder="Describe what you're trying to find...">
+        <button id="sendButton">Search</button>
+      </div>
+    </div>
+
+    <div class="timestamps-section">
+      <h3 class="timestamps-header">Discovered Moments</h3>
+      <ul id="timestampList"></ul>
+    </div>
+  </div>
+
+  <script>
+    const video = document.getElementById('videoPlayer');
+    const timestampList = document.getElementById('timestampList');
+    const chatMessages = document.getElementById('chatMessages');
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+    const videoSource = document.getElementById('videoSource');
+    
+    // Get video path from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const videoPath = urlParams.get('video_path');
+    if (videoPath) {
+      videoSource.src = `/video/${encodeURIComponent(videoPath)}`;
+      video.load();
+    }
+
+    // Clear the timestamp list initially
+    timestampList.innerHTML = '';
+    
+    // Chat functionality
+    sendButton.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+
+    function sendMessage() {
+      const message = messageInput.value.trim();
+      if (!message) return;
+      
+      // Add user message to chat
+      addMessage(message, 'user');
+      messageInput.value = '';
+      
+      // Add loading indicator
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'loading';
+      loadingDiv.textContent = 'Detective is analyzing the footage...';
+      chatMessages.appendChild(loadingDiv);
+      
+      // Clear the timestamp list when sending a new message
+      timestampList.innerHTML = '';
+      document.querySelector('.timestamps-section').classList.remove('has-timestamps');
+      
+      // Send to backend
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: message
+        }),
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Remove loading indicator
+        chatMessages.removeChild(loadingDiv);
+        
+        // Display the main response
+        const responseText = data.response || JSON.stringify(data);
+        addMessage(responseText, 'bot');
+        
+        // Update timestamps if they exist
+        if (data.timestamps && data.timestamps.length > 0) {
+          document.querySelector('.timestamps-section').classList.add('has-timestamps');
+          data.timestamps.forEach(clip => {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.innerText = `${clip.label} (${formatTime(clip.start)} - ${formatTime(clip.end)})`;
+            btn.addEventListener('click', () => playClip(clip));
+            li.appendChild(btn);
+            timestampList.appendChild(li);
+          });
+        }
+      })
+      .catch(error => {
+        chatMessages.removeChild(loadingDiv);
+        addMessage('Investigation hit a dead end. Try a different approach, detective.', 'bot');
+        console.error('Error:', error);
+      });
+    }
+
+    function addMessage(text, sender) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${sender}-message`;
+      messageDiv.textContent = text;
+      chatMessages.appendChild(messageDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function playClip(clip) {
+      video.currentTime = clip.start;
+      video.play();
+
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+
+      function handleTimeUpdate() {
+        if (video.currentTime >= clip.end) {
+          video.pause();
+          video.removeEventListener('timeupdate', handleTimeUpdate);
+        }
+      }
+      video.addEventListener('timeupdate', handleTimeUpdate);
+    }
+
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+  </script>
+</body>
+</html> 
