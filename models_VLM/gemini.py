@@ -1,4 +1,5 @@
 from google import genai
+import time
 from google.genai import types
 from models_VLM.base_model import base_model
 import os,time
@@ -40,7 +41,16 @@ class gemini(base_model):
             batch_input_tokens = 0
             batch_output_tokens = 0
             for frame_group in frame_groups:
-                response  = self.client.models.generate_content( model = self.base_model_str, 
+                try:
+                    response  = self.client.models.generate_content( model = self.base_model_str, 
+                                                        contents = frame_group + [question],
+                                                        config=types.GenerateContentConfig(
+                                                            max_output_tokens=max_tokens,
+                                                            temperature=temperature
+                                                        ))
+                except:
+                    time.sleep(30)
+                    response  = self.client.models.generate_content( model = self.base_model_str, 
                                                         contents = frame_group + [question],
                                                         config=types.GenerateContentConfig(
                                                             max_output_tokens=max_tokens,

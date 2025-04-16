@@ -20,7 +20,7 @@ def load_data(file_path: str) -> List[Dict[str, Any]]:
             return json.load(f)
     except Exception as e:
         print(f"Error loading data: {e}")
-        sys.exit(1)
+        return []
 
 def get_all_available_models() -> Dict[str, List[str]]:
     """Get all available models from all providers."""
@@ -118,9 +118,10 @@ def interactive_chat(audio_chunks, vision_chunks, provider_name: str, model:str)
         print(f"\nAnalyzing video to answer your question...")
 
         responses = []
-        for chunk_index in range(0, min(len(audio_chunks),len(vision_chunks))):
+        print(len(vision_chunks))
+        for chunk_index in range(0, max(len(audio_chunks),len(vision_chunks))):
             # Prepare the prompt
-            prompt = generic_query_prompt.format(query=query, frames=vision_chunks[chunk_index], transcriptions= audio_chunks[chunk_index])
+            prompt = generic_query_prompt.format(query=query, frames=vision_chunks[chunk_index] if chunk_index < len(vision_chunks) else "", transcriptions= audio_chunks[chunk_index]  if chunk_index < len(audio_chunks) else "",)
             resp = api.generate(prompt)
             resp = extract_json_response(resp)
             responses.append(resp)
@@ -199,8 +200,10 @@ def process_query_for_web(query, audio_chunks, vision_chunks, provider_name, mod
     segment_responses = []
     raw_timestamps = []  # Collect raw timestamps before aggregation
     
-    for chunk_index in range(0, min(len(audio_chunks), len(vision_chunks))):
-        prompt = generic_query_prompt.format(query=query, frames=vision_chunks[chunk_index], transcriptions=audio_chunks[chunk_index])
+    for chunk_index in range(0, max(len(audio_chunks),len(vision_chunks))):
+            # Prepare the prompt
+        prompt = generic_query_prompt.format(query=query, frames=vision_chunks[chunk_index] if chunk_index < len(vision_chunks) else "", transcriptions= audio_chunks[chunk_index]  if chunk_index < len(audio_chunks) else "",)
+            
         resp = api.generate(prompt)
         resp = extract_json_response(resp)
         try:

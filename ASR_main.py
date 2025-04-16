@@ -31,7 +31,7 @@ def create_asr_description(video_path:str, asr_model:str, diarization_model:str,
     if asr_model == "whisper":
         model = whisper(diarization_model_name=diarization_model, asr_model_name=base_model_id, device=device, language=language)
     
-    transcription_chunks = model.transcribe_batch_audio(audio_data["chunk_files"],audio_data["sampling_rate"])
+    transcription_chunks = model.transcribe_batch_audio(audio_data["chunk_files"],audio_data["sampling_rate"],chunk_interval)
     
     # Format transcription to JSON
     formatted_json = format_transcription_to_json(transcription_chunks, video_duration, interval)

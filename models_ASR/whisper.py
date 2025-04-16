@@ -19,6 +19,7 @@ class whisper(base_model):
             "automatic-speech-recognition",
             model=asr_model_name,
             device=device,
+            return_timestamps=True,
             generate_kwargs={"language": language, "task": "transcribe"}
         )
         self.pipeline_diarization = Pipeline.from_pretrained(
@@ -27,13 +28,13 @@ class whisper(base_model):
         ) 
         self.pipeline_diarization.to(torch.device(device))
     
-    def transcribe_audio(self, audio_path:str, sample_rate:int):
+    def transcribe_audio(self, chunk_interval:int, chunk_index:int, audio_path:str, sample_rate:int):
         audio_data = load_audio(audio_path).numpy().astype(np.float32)
         diarization = self.pipeline_diarization(audio_path)
         results = []
         for segment, _, speaker in diarization.itertracks(yield_label=True):
-            start_sample = int(segment.start * sample_rate)
-            end_sample = int(segment.end * sample_rate)
+            start_sample = int(segment.start * sample_rate) + chunk_index*chunk_interval
+            end_sample = int(segment.end * sample_rate) + chunk_index*chunk_interval
             segment_audio = audio_data[start_sample:end_sample]
             if len(segment_audio) == 0:
                 continue
@@ -46,10 +47,10 @@ class whisper(base_model):
             })
         return results
     
-    def transcribe_batch_audio(self, chunk_files, sample_rate:int):
+    def transcribe_batch_audio(self, chunk_files, sample_rate:int, chunk_interval:int):
         results = []
-        for chunk_filepath in chunk_files:
-            chunk_results = self.transcribe_audio(chunk_filepath, sample_rate)
+        for i,chunk_filepath in enumerate(chunk_files):
+            chunk_results = self.transcribe_audio(chunk_interval=chunk_interval, chunk_index=i, audio_path=chunk_filepath, sample_rate=sample_rate)
             results.extend(chunk_results)
         
         return results

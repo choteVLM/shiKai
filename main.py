@@ -53,7 +53,7 @@ def chat():
     if not query:
         return jsonify({"error": "No query provided"}), 400
     
-    if not g_audio_chunks or not g_vision_chunks:
+    if not g_audio_chunks and not g_vision_chunks:
         return jsonify({"error": "No video data loaded. Please process a video first."}), 400
     
     response_data = process_query_for_web(query, g_audio_chunks, g_vision_chunks, g_provider_name, g_model)
