@@ -5,51 +5,33 @@
   <title>Video Detective</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Source+Sans+Pro:wght@400;600&display=swap"
+    rel="stylesheet"
+  >
   <style>
+    /* ---- GLOBAL STYLES ---- */
+    * {
+      box-sizing: border-box;
+    }
     body {
       font-family: 'Source Sans Pro', sans-serif;
       margin: 0;
       padding: 0;
-      background-color: #f5f2e9; /* More subtle vintage paper color */
       color: #2b2522;
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect x="0" y="0" width="100" height="100" fill="none" stroke="%23e8e3d7" stroke-width="1" stroke-dasharray="5,5" /></svg>');
+      /* Subtle gradient background to add some contemporary depth */
+      background: linear-gradient(120deg, #f6f2ec 0%, #eae5db 100%);
     }
     .container {
-      max-width: 1000px;
+      max-width: 1200px;
       margin: 0 auto;
       padding: 2rem;
       position: relative;
     }
-    #timestampList {
-      list-style-type: none;
-      padding: 0;
-      margin: 1rem 0;
-    }
-    #timestampList li {
-      margin: 10px 0;
-    }
-    #timestampList button {
-      cursor: pointer;
-      padding: 0.8rem 1.5rem;
-      font-size: 1.1rem;
-      background-color: #635147; /* Subtle brown */
-      color: #f5f2e9;
-      border: none;
-      border-radius: 2px;
-      width: 100%;
-      text-align: left;
-      font-family: 'Source Sans Pro', sans-serif;
-      box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
-      transition: all 0.2s ease;
-    }
-    #timestampList button:hover {
-      background-color: #4d3e36; /* Darker brown */
-    }
     h1 {
       color: #2b2522;
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1rem;
       font-family: 'Playfair Display', serif;
       font-size: 2.5rem;
       letter-spacing: 1px;
@@ -57,6 +39,8 @@
       display: inline-block;
       left: 50%;
       transform: translateX(-50%);
+      /* Subtle text-shadow for that pop effect */
+      text-shadow: 0 2px 4px rgba(0,0,0,0.15);
     }
     h1::after {
       content: "";
@@ -67,21 +51,46 @@
       height: 2px;
       background: linear-gradient(90deg, transparent, #635147, transparent);
     }
+
+    /* ---- LAYOUT STYLES ---- */
+    .main-content {
+      display: flex;
+      gap: 2rem;
+      margin-top: 2rem;
+      min-height: 720px;
+    }
+    .left-column {
+      flex: 7;
+      display: flex;
+      flex-direction: column;
+    }
+    .right-column {
+      flex: 3;
+      height: 100%;
+    }
+
+    /* ---- VIDEO CONTAINER ---- */
     .video-container {
       position: relative;
       width: 100%;
-      max-width: 800px;
-      margin: 0 auto 2rem;
-      border: 10px solid #2d2621;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
       overflow: hidden;
+      box-sizing: border-box;
+      height: 0;
+      padding-bottom: 56.25%; /* 16:9 Aspect Ratio for responsive video */
+      border-radius: 10px; /* So it looks less boxy */
+      box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+      margin-bottom: 1.5rem;
+      background-color: #000;
     }
     video {
       width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
       display: block;
-      background-color: #000;
     }
-    /* Film strip overlay on video - keeping this but making more subtle */
+    /* Optional: If you prefer a simplified look, remove film strip overlays */
     .video-container::before,
     .video-container::after {
       content: "";
@@ -89,37 +98,37 @@
       height: 20px;
       left: 0;
       right: 0;
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="20" viewBox="0 0 800 20"><rect x="0" y="0" width="800" height="20" fill="%23222" /><rect x="10" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="40" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="70" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="100" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="130" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="160" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="190" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="220" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="250" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="280" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="310" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="340" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="370" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="400" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="430" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="460" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="490" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="520" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="550" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="580" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="610" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="640" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="670" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="700" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="730" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /><rect x="760" y="5" width="10" height="10" fill="transparent" stroke="%23333" stroke-width="1" /></svg>');
+      background-image: url('data:image/svg+xml;utf8,<svg ...>');
       z-index: 1;
       pointer-events: none;
       opacity: 0.7;
     }
-    .video-container::before {
-      top: 0;
-    }
-    .video-container::after {
-      bottom: 0;
-    }
-    /* Chat interface styles */
+    .video-container::before { top: 0; }
+    .video-container::after { bottom: 0; }
+
+    /* ---- CHAT CONTAINER ---- */
     .chat-container {
-      background-color: #f9f7f4;
-      border: none;
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(6px);
       border-radius: 12px;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
-      margin-top: 2rem;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      margin-top: 1rem;
       overflow: hidden;
       position: relative;
       transition: box-shadow 0.3s ease;
+      flex: 1;
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
     }
     .chat-container:hover {
-      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      /* Slightly lift it on hover */
+      box-shadow: 0 12px 28px rgba(0,0,0,0.15);
     }
-    .chat-container::before,
-    .chat-container::after {
-      display: none; /* Remove the top/bottom bars */
-    }
+
     .chat-header {
-      background-color: #4d3e36; /* Subtle brown */
+      /* Subtle gradient bar */
+      background: linear-gradient(135deg, #4d3e36, #6f5f55);
       color: #f9f7f4;
       padding: 1.2rem;
       font-weight: 600;
@@ -130,23 +139,17 @@
       margin-top: 0;
       position: relative;
     }
-    .chat-header::after {
-      content: "";
-      position: absolute;
-      bottom: 0;
-      left: 15%;
-      right: 15%;
-      height: 1px;
-      background: rgba(255,255,255,0.2);
-    }
+
+    /* Chat messages area */
     .chat-messages {
       padding: 1.5rem;
-      max-height: 320px;
+      height: 100%;
+      min-height: 180px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      background-image: none;
-      background-color: #f9f7f4;
+      background-color: transparent; /* Let the blurred background show through */
+      flex: 1;
     }
     .chat-messages::-webkit-scrollbar {
       width: 6px;
@@ -159,35 +162,38 @@
       background-color: rgba(0,0,0,0.12);
       border-radius: 3px;
     }
+
+    /* Individual message bubbles */
     .message {
       margin-bottom: 1.2rem;
       padding: 1rem 1.2rem;
-      border-radius: 12px;
-      max-width: 80%;
+      border-radius: 16px;
+      max-width: 75%;
       font-family: 'Source Sans Pro', sans-serif;
       position: relative;
       border: none;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.06);
       line-height: 1.5;
       transition: transform 0.2s ease;
+      font-size: 0.95rem;
     }
     .message:hover {
-      transform: translateY(-1px);
+      transform: translateY(-2px);
     }
     .user-message {
-      background-color: #f0e9e2; /* Light beige */
+      background: linear-gradient(135deg, #fce9dc, #fbe3da);
       align-self: flex-end;
       border-bottom-right-radius: 4px;
     }
     .bot-message {
-      background-color: #e6e2dc; /* Light gray-beige */
+      background: linear-gradient(135deg, #e7e3dd, #f0ece7);
       align-self: flex-start;
       border-bottom-left-radius: 4px;
       padding-left: 1.5rem;
       position: relative;
-      margin-left: 46px; /* Add space for the avatar */
+      margin-left: 56px; /* More space for the avatar */
     }
-    
+    /* Detective emoji as an avatar */
     .bot-message::before {
       content: "🕵️";
       position: absolute;
@@ -203,20 +209,22 @@
       align-items: center;
       justify-content: center;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      transition: transform 0.2s ease;
       border: 1px solid rgba(255,255,255,0.5);
+      transition: transform 0.2s ease;
     }
-    
     .bot-message:hover::before {
-      transform: translateY(-50%) scale(1.1);
+      transform: translateY(-50%) scale(1.15);
     }
+
+    /* Chat input */
     .chat-input {
       display: flex;
       border-top: none;
       padding: 0.8rem 1.2rem 1.2rem;
-      background-color: #f9f7f4;
+      background-color: transparent;
       position: relative;
       z-index: 2;
+      backdrop-filter: blur(10px);
     }
     .chat-input::before {
       content: "";
@@ -237,42 +245,48 @@
       font-family: 'Source Sans Pro', sans-serif;
       color: #2b2522;
       position: relative;
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="10" cy="10" r="7" fill="none" stroke="%234d3e36" stroke-width="1.5"/><line x1="15" y1="15" x2="20" y2="20" stroke="%234d3e36" stroke-width="1.5" stroke-linecap="round"/></svg>');
+      background-image: url('data:image/svg+xml;utf8,<svg ...>');
       background-repeat: no-repeat;
       background-position: 16px center;
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-    #messageInput:focus {
-      outline: none;
-      border-color: rgba(99, 81, 71, 0.4);
-      box-shadow: 0 0 0 3px rgba(99, 81, 71, 0.1);
+      font-size: 0.95rem;
     }
     #messageInput::placeholder {
       color: #aa9f94;
       font-style: italic;
     }
+    #messageInput:focus {
+      outline: none;
+      border-color: rgba(99,81,71,0.4);
+      box-shadow: 0 0 0 3px rgba(99,81,71,0.1);
+    }
+
+    /* Send button */
     #sendButton {
       padding: 0 1.8rem;
-      background-color: #635147;
+      background: linear-gradient(135deg, #635147, #4d3e36);
       color: white;
       border: none;
       border-radius: 30px;
       cursor: pointer;
       font-family: 'Source Sans Pro', sans-serif;
       font-weight: 600;
-      transition: all 0.2s ease;
+      transition: all 0.2s ease, box-shadow 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
     }
     #sendButton:hover {
-      background-color: #4d3e36;
+      background: linear-gradient(135deg, #806c61, #5a4b40);
       transform: translateY(-2px);
-      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+      box-shadow: 0 5px 12px rgba(0,0,0,0.15);
     }
     #sendButton:active {
       transform: translateY(0);
+      box-shadow: none;
     }
+
+    /* Loading state */
     .loading {
       text-align: center;
       padding: 1rem;
@@ -280,10 +294,9 @@
       font-style: italic;
       opacity: 0.8;
     }
-    /* Subtle loading animation */
     @keyframes pulse {
-      0% { opacity: 0.6; }
-      50% { opacity: 1; }
+      0%   { opacity: 0.6; }
+      50%  { opacity: 1; }
       100% { opacity: 0.6; }
     }
     .loading::before {
@@ -292,76 +305,155 @@
       margin-right: 10px;
       animation: pulse 1.5s ease infinite;
     }
-    /* Timestamp styling */
-    .timestamps-section {
-      margin-top: 2rem;
-      display: none;
-    }
-    .timestamps-section.has-timestamps {
-      display: block;
-      animation: fadeIn 0.5s ease-in-out;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .timestamps-header {
-      font-family: 'Playfair Display', serif;
-      color: #4d3e36;
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
-      text-align: center;
+
+    /* ---- RESULTS PANEL ---- */
+    .results-panel {
+      background-color: #f9f7f4;
+      border-radius: 12px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      height: 100%;
+      min-height: 600px;
+      display: flex;
+      flex-direction: column;
       position: relative;
     }
-    .timestamps-header::after {
-      content: "";
-      position: absolute;
-      bottom: -8px;
-      left: 15%;
-      right: 15%;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(99, 81, 71, 0.3), transparent);
+    .results-header {
+      background-color: #4d3e36;
+      color: #f9f7f4;
+      padding: 1.2rem;
+      font-weight: 600;
+      text-align: center;
+      font-family: 'Playfair Display', serif;
+      letter-spacing: 1px;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      margin: 0;
+    }
+    .results-content {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+      position: relative;
+    }
+    #timestampList {
+      list-style-type: none;
+      padding: 0;
+      margin: 1rem 0;
+    }
+    #timestampList li {
+      margin: 10px 0;
+    }
+    #timestampList button {
+      cursor: pointer;
+      padding: 0.8rem 1.2rem;
+      font-size: 1rem;
+      background-color: #635147;
+      color: #f5f2e9;
+      border: none;
+      border-radius: 4px;
+      width: 100%;
+      text-align: left;
+      font-family: 'Source Sans Pro', sans-serif;
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+      transition: all 0.2s ease;
+      margin-bottom: 0.5rem;
+    }
+    #timestampList button:hover {
+      background-color: #4d3e36;
+    }
+
+    /* Empty results state */
+    .empty-results {
+      text-align: center;
+      padding: 2rem;
+      color: #7a6a5d;
+      font-style: italic;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 80%;
+    }
+    .empty-results svg {
+      width: 60px;
+      height: 60px;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    /* Subtle fadeIn for new results */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .has-results {
+      animation: fadeIn 0.5s ease-in-out;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1> 🎞️ 🕵️ Video Detective</h1>
+    <h1>🎞️ 🕵️ Video Detective</h1>
 
-    <div class="video-container">
-      <video
-        id="videoPlayer"
-        controls
-      >
-        <source id="videoSource" src="" type="video/mp4">
-        Your browser does not support the HTML5 video tag.
-      </video>
-    </div>
-
-    <div class="chat-container">
-      <div class="chat-header">
-        Find anything in your video
-      </div>
-      <div class="chat-messages" id="chatMessages">
-        <div class="message bot-message">
-          What are you looking for in this footage, detective?
+    <div class="main-content">
+      <!-- LEFT COLUMN: VIDEO + CHAT -->
+      <div class="left-column">
+        <div class="video-container">
+          <video
+            id="videoPlayer"
+            controls
+          >
+            <source id="videoSource" src="" type="video/mp4">
+            Your browser does not support the HTML5 video tag.
+          </video>
+        </div>
+  
+        <!-- CHAT CONTAINER -->
+        <div class="chat-container">
+          <div class="chat-header">
+            Find anything in your video
+          </div>
+          <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">
+              What are you looking for in this footage, detective?
+            </div>
+          </div>
+          <div class="chat-input">
+            <input type="text" id="messageInput" placeholder="Describe what you're trying to find...">
+            <button id="sendButton">Search</button>
+          </div>
         </div>
       </div>
-      <div class="chat-input">
-        <input type="text" id="messageInput" placeholder="Describe what you're trying to find...">
-        <button id="sendButton">Search</button>
-      </div>
-    </div>
 
-    <div class="timestamps-section">
-      <h3 class="timestamps-header">Search Results</h3>
-      <ul id="timestampList"></ul>
+      <!-- RIGHT COLUMN: RESULTS -->
+      <div class="right-column">
+        <div class="results-panel">
+          <h3 class="results-header">Search Results</h3>
+          <div class="results-content">
+            <div id="emptyResults" class="empty-results">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path fill="currentColor"
+                      d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 
+                         16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 
+                         0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 
+                         19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 
+                         9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                />
+              </svg>
+              <p>Submit a search to see results</p>
+            </div>
+            <ul id="timestampList"></ul>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
+  <!-- JS LOGIC -->
   <script>
     const video = document.getElementById('videoPlayer');
     const timestampList = document.getElementById('timestampList');
+    const emptyResults = document.getElementById('emptyResults');
     const chatMessages = document.getElementById('chatMessages');
     const messageInput = document.getElementById('messageInput');
     const sendButton = document.getElementById('sendButton');
@@ -371,13 +463,13 @@
     const urlParams = new URLSearchParams(window.location.search);
     const videoPath = urlParams.get('video_path');
     if (videoPath) {
-      videoSource.src = `/video/${encodeURIComponent(videoPath)}`;
+      videoSource.src = '/video/' + encodeURIComponent(videoPath);
       video.load();
     }
 
     // Clear the timestamp list initially
     timestampList.innerHTML = '';
-    
+
     // Chat functionality
     sendButton.addEventListener('click', sendMessage);
     messageInput.addEventListener('keypress', function(e) {
@@ -400,19 +492,16 @@
       loadingDiv.textContent = 'Detective is analyzing the footage...';
       chatMessages.appendChild(loadingDiv);
       
-      // Clear the timestamp list when sending a new message
+      // Clear the timestamp list for a new search
       timestampList.innerHTML = '';
-      document.querySelector('.timestamps-section').classList.remove('has-timestamps');
+      emptyResults.style.display = 'block';
       
-      // Send to backend
+      // Dummy fetch to simulate API
+      // Replace with your real endpoint & logic
       fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: message
-        }),
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ query: message }),
       })
       .then(response => response.json())
       .then(data => {
@@ -425,7 +514,8 @@
         
         // Update timestamps if they exist
         if (data.timestamps && data.timestamps.length > 0) {
-          document.querySelector('.timestamps-section').classList.add('has-timestamps');
+          emptyResults.style.display = 'none';
+          
           data.timestamps.forEach(clip => {
             const li = document.createElement('li');
             const btn = document.createElement('button');
@@ -434,6 +524,8 @@
             li.appendChild(btn);
             timestampList.appendChild(li);
           });
+          
+          timestampList.classList.add('has-results');
         }
       })
       .catch(error => {
@@ -473,4 +565,4 @@
     }
   </script>
 </body>
-</html> 
+</html>
