@@ -10,6 +10,23 @@ ShiKai is the most flexible video search engine out there! letting you pick and 
 Build your ideal video search stack by customizing every component from speech recognition and VLMs to retrieval workflows in an easy and scalable manner 🚀✨
 
 
+## 📬 Contact Us
+
+Need ShiKai tailored to your specific video processing needs? Our team can help with custom finetuning and integrations:
+
+- **Shubham Sharma**: [shubham.sharma.c2023@iitbombay.org](mailto:shubham.sharma.c2023@iitbombay.org)
+- **Aryan jain**: [aryan_j@cs.iitr.ac.in](mailto:aryan_j@cs.iitr.ac.in)
+
+
+If you want to implement research papers in video models, contribute to the code development or help shape the [roadmap](#future-roadmap-), join our community!
+
+<p align="center">
+  <a href="https://discord.gg/v7ef76KXFc">
+    <img src="https://img.shields.io/badge/Join%20our%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join our Discord" width="250">
+  </a>
+</p>
+
+
 ## How ShiKai Works
 
 ShiKai processes videos through three core pipelines that work together to enable natural language querying of video content:
@@ -43,7 +60,8 @@ The Query Engine is the orchestration layer that determines how to analyze and u
    - Combining face recognition with VLM for "When does this character appear again?"
 2. **Temporal Alignment**: Aligns information across modalities with precise timestamps
 3. **Knowledge Retrieval**: Can perform RAG (Retrieval Augmented Generation) over video embeddings to narrow down the search space on larger video databases 
-4. **Response Generation**: Integrates the responses via a final chatLLM for the user
+4. **Adaptive Frame sampling**: Uses temporal search algorithms (like [T*](http://lvhaystackai.com)) to improve accuracy and speed of query responses 
+5. **Response Generation**: Integrates the responses via a final chatLLM for the user
 
 > **Note**: The current implementation uses a basic [Socratic model](https://socraticmodels.github.io) approach, where the video is parsed sequentially step by step and dense captions are generted. Future versions will support more sophisticated reasoning patterns, video RAG, parallel processing, and integration with specialized models like YOlO, SAM. 
 ##TODO: change this based on how much aryan is able to do 
@@ -228,39 +246,68 @@ This will start a web server at http://localhost:5000 where you can:
 ```
 
 
-## Models currently supported
-- Frame Description VLM
+## Future Roadmap 🚀
+
+### 🎯 Current Capabilities
+- **Frame Description VLM**
     - smolVLM
-    - gemini
-- Audio Transcription ASR
+    - Gemini Vision
+- **Audio Transcription ASR**
     - Pipeline
-        - whisper
+        - Whisper
     - Diarization model
-        - pyannote/speaker-diarization-*
+        - Pyannote/speaker-diarization-*
     - ASR model
-        - penai/whisper-*
-- Query Engine LLM
-    - OpenAI (like gpt-3.5-turbo, gpt-4 etc.)
-    - Gemini (like gemini-2.0-flash etc.)
+        - OpenAI/whisper-*
+- **Query Engine**
+    - [Socratic model](https://socraticmodels.github.io) approach with OpenAI and Gemini models 
 
-## Requirements
+### 🔮 Coming Soon
 
-- Python 3.7+
-- PyTorch
-- Transformers
-- OpenCV
-- YAML
-- Other dependencies listed in requirements.txt
+#### 📊 Benchmarking & Evaluation
+- **Long Video understanding Benchmarks**
+  - [HourVideo](https://hourvideo.stanford.edu): Benchmarking differnt aspects like summarization, perception (recall, tracking), visual reasoning (spatial, temporal, predictive, causal, counterfactual), and navigation (room-to-room, object retrieval) in hour-long videos 
+  - [MomentSeeker](https://huggingface.co/datasets/avery00/MomentSeeker): Benchmarking long-video moment retrieval (LVMR) with multimodal queries.
+  - [LongVideoHaystack](https://huggingface.co/datasets/LVHaystack/LongVideoHaystack): A new benchmark of 3,874 human-annotated instances with fine-grained metrics for keyframe search quality and efficiency in videos up to 30 minutes
+  - Support for standard evaluation metrics and comparison with SOTA methods
 
-## Advanced Configuration
+#### 🎬 Expanding Model Support
+- **Advanced Vision Models**
+  - Qwen2.5-VL: Alibaba's multimodal foundation model series 
+  - OpenAI Vision models
+  - Apollo models: multimodal models for video understanding released by meta
+  - 12 Labs: Video understanding models like Marengo and Pegasus 
+  
+- **Specialized Models**
+  - SAM: Segment Anything Model for precise object segmentation
+  - YOLOWorld: Real-time object detection with open vocabulary
+  - Face recognition models for person identification
+  - Action recognition models for temporal activity tracking
 
-For detailed statistics on VLM model usage, specify the `--show_stats` flag. This provides:
+#### 📚 RAG Pipeline for Video Databases
+- **Video Embedding Models**
+  - InternVideo2: State-of-the-art video representations (video encoder)
+  - LangBind-Video: Language-bound video representations (video encoder)
+  - SigLIP: Signal-to-language pre-training (image encoder)
+  - V-JEPA: Video Joint Embedding Predictive Architecture trained with self-supervised learning (video encoder)
+- **Database & Retrieval Improvements**
+  - Vector database integration with Qdrant
+  - Multi-modal embeddings for combined visual-audio search
+  - Query optimization for large video collections
+  - Semantic chunk-based retrieval for faster search
 
-- Token usage statistics
-- Processing time analysis
-- Video metadata analysis
-- Resource utilization metrics
-- Estimated cost (if using commercial APIs)
+#### ⏱️ Advanced Search Algorithms
+- **Adaptive Frame Sampling**
+  - [T*](http://lvhaystackai.com):  Identify key frames relevant to specific queries by leveraging lightweight object detectors to reduce the inference budget of the VLM
+  - [VideoTree](https://videotree2024.github.io): Build a tree structure in a query-adaptive manner for a coarse-to-fine search on frames
+  - [VideoAgent](https://wxh1996.github.io/VideoAgent-Website/): Agent-based frame selection strategies using VLMs and other models as tools
+
+- **Temporal Reasoning**
+  - Causal reasoning across video segments
+  - Event boundary detection
+  - State tracking for objects and actors
+  - Time-based query refinement
+
 
 ## License
 

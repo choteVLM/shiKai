@@ -1,11 +1,11 @@
 # Configuration
-video_path: ./results/video.mp4
-video_chunk_length: 300
+video_path: /Users/hehe/Desktop/startup/shiKai/videos/RR_batting_10min_2.mp4
+video_chunk_length: 300 ##in what?
 vision_cfg: ./configs/vision_extract.yml
 audio_cfg: ./configs/audio_extract.yml
-use_frame_desc: False
-frame_desc_file: /tmp/frame_desc.json
-use_audio_trans: False
-audio_trans_file: /tmp/audio_desc.json
+use_frame_desc: True
+frame_desc_file: ./results/vision_extract.json
+use_audio_trans: True
+audio_trans_file: ./results/audio_extract.json
 provider: Gemini
 model: gemini-2.0-flash
