@@ -311,4 +311,7 @@ This will start a web server at http://localhost:5000 where you can:
 
 ## License
 
-[MIT License](LICENSE)
+This software is licensed under the Elastic License 2.0.
+
+You may use, modify, and redistribute the code, but you may not provide the software as a managed service.  
+See the [LICENSE](./LICENSE) file or visit [elastic.co/licensing](https://www.elastic.co/licensing/elastic-license) for details.
